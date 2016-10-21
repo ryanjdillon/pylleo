@@ -1,0 +1,7 @@
+# swap files
+*.swp
+
+# python files and directories
+*.pyc
+*.pyx
+__pycache__/
