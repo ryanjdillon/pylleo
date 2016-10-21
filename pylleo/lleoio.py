@@ -30,8 +30,8 @@ def read_meta(data_path, param_strs, n_header):
 
     # TODO correct module heirarchy to avoid this
     # http://stackoverflow.com/a/16985066/943773
-    from pylleo import yamlutils
-    from pylleo import utils
+    from pylleo.pylleo import yamlutils
+    from pylleo.pylleo import utils
 
     def __parse_meta_line(line):
         '''Return key, value pair parsed from data header line'''
