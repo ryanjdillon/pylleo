@@ -2,8 +2,6 @@
 LeoADCA
 Little Leonardo Accelerometer Data Calibration Application
 
-Author: Ryan J. Dillon
-
 This app will launch an window in your default broweser to visually identify
 the times at which various axis of the lleo tag have been placed into +/-g
 orientations.
@@ -92,19 +90,19 @@ def save_times():
     from collections import OrderedDict
     import os
 
-    from biotelem.acc import yaml_tools
-    from biotelem.acc import lleo
+    from pylleo import yamlutils
 
     cal_yaml_path = os.path.join(data_path, 'cal.yaml')
 
     try:
-        cal_dict = yaml_tools.read_yaml(cal_yaml_path)
+        cal_dict = yamlutils.read_yaml(cal_yaml_path)
     except:
         cal_dict = OrderedDict()
 
     param = str(param_select.value)
     bound = str(bound_select.value)
 
+    # TODO add date created/git has
     # Create dictionary fields if not in meta dict
     if param not in cal_dict:
         cal_dict[param] = OrderedDict()
@@ -114,7 +112,7 @@ def save_times():
     cal_dict[param][bound]['start'] = start_input.value
     cal_dict[param][bound]['end']   = end_input.value
 
-    yaml_tools.write_yaml(cal_dict, cal_yaml_path)
+    yamlutils.write_yaml(cal_dict, cal_yaml_path)
 
     return cal_dict
 
@@ -135,28 +133,26 @@ from bokeh.models.widgets import Slider, Select, TextInput
 from bokeh.models.widgets import Button
 from bokeh.io import curdoc
 
-from biotelem.acc import lleo
+from pylleo import lleoio
 
 # DATA
 #------------------------------------------------------------------------------
 
 # Setup Accelerometer data
-base_path = ('/home/ryan/Desktop/edu/01_PhD/projects/smartmove/data/'
-             'lleo_coexist/Acceleration/')
-exp_path = ('20150311_W190-PD3GT_34839_Skinny_Control')
-exp_path = ('20150317_W190PD3GT_34839_Skinny_4Floats')
-exp_path = ('20160418_W190PD3GT_34840_Skinny_2Neutral')
-data_path = os.path.join(base_path, exp_path)
+# TODO remove
+#base_path = ('/home/ryan/Desktop/edu/01_PhD/projects/smartmove/data/'
+#             'lleo_coexist/Acceleration/')
+#exp_path = ('20160418_W190PD3GT_34840_Skinny_2Neutral')
+#data_path = os.path.join(base_path, exp_path)
 
 data_path = sys.argv[1]
-
 
 # TODO handle lleo mag, and other tags...
 param_strs = ['Acceleration-X', 'Acceleration-Y', 'Acceleration-Z', 'Depth',
               'Propeller', 'Temperature']
 
-meta = lleo.read_meta(data_path, param_strs, n_header=10)
-acc, depth, prop, temp = lleo.read_data(meta, data_path, n_header=10, sample_f=20)
+meta = lleoio.read_meta(data_path, param_strs, n_header=10)
+acc, depth, prop, temp = lleoio.read_data(meta, data_path, n_header=10, sample_f=20)
 
 # TODO make data output similar to dtag, remove this
 A = acc[acc.keys()[1:]].values.astype(float)
@@ -169,9 +165,7 @@ dates = timestamp_to_epoch(acc['datetimes'])
 source = ColumnDataSource(data=dict(x    = list(A[:,0]),
                                     y    = list(A[:,1]),
                                     z    = list(A[:,2]),
-                                    date = list(dates),
-                                    )
-                                   )
+                                    date = list(dates),))
 
 # Input
 #------------------------------------------------------------------------------

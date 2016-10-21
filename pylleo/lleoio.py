@@ -30,8 +30,8 @@ def read_meta(data_path, param_strs, n_header):
 
     # TODO correct module heirarchy to avoid this
     # http://stackoverflow.com/a/16985066/943773
-    from biotelem.acc import yaml_tools
-    from biotelem.acc import git_tools
+    from pylleo import yamlutils
+    from pylleo import utils
 
     def __parse_meta_line(line):
         '''Return key, value pair parsed from data header line'''
@@ -69,20 +69,20 @@ def read_meta(data_path, param_strs, n_header):
 
     # TODO check if git hash has changed, if so re-do
     if os.path.isfile(meta_yaml_path):
-        meta = yaml_tools.read_yaml(meta_yaml_path)
+        meta = yamlutils.read_yaml(meta_yaml_path)
 
     # Else create meta dictionary and save to YAML
     else:
         # Create dictionary of meta data
         meta = OrderedDict()
-        meta['git_hash'] = git_tools.get_hash('long')
+        meta['git_hash'] = utils.get_githash('long')
 
         for param_str in param_strs:
             print('Create meta entry for {}'.format(param_str))
             file_path = get_file_path(data_path, param_str, '.TXT')
             meta      = __read_meta_all(file_path, meta, n_header=n_header)
 
-        yaml_tools.write_yaml(meta, meta_yaml_path)
+        yamlutils.write_yaml(meta, meta_yaml_path)
 
     return meta
 
