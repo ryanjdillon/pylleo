@@ -47,11 +47,13 @@ def plot_triaxial(data_df, height, width, tools):
                               toolbar_sticky=False, tools=tools, webgl=True)
 
     # Static plot of accelerometry data
-    p.line(y='x', x='date', color='#1b9e77', legend='x', source=source)
-    p.line(y='y', x='date', color='#d95f02', legend='y', source=source)
-    p.line(y='z', x='date', color='#7570b3', legend='z', source=source)
+    x_line = p.line(y='x', x='date', color='#1b9e77', legend='x', source=source)
+    y_line = p.line(y='y', x='date', color='#d95f02', legend='y', source=source)
+    z_line = p.line(y='z', x='date', color='#7570b3', legend='z', source=source)
 
-    return p
+    lines = [x_line, y_line, z_line]
+
+    return p, lines
 
 
 def select_data(acc, acc_slider):
@@ -72,6 +74,9 @@ def update(attrname, old, new):
 
     vline.set(location=acc_slider.value)
 
+    for i in range(len(lines)):
+        lines[i].visible = i in param_checkbox.active
+
     #source.data['timestep'][0] = acc_slider.value
 
         # The following can be used to filter/update data,
@@ -90,7 +95,7 @@ def save_times():
     from collections import OrderedDict
     import os
 
-    from pylleo import yamlutils
+    from pylleo.pylleo import yamlutils
 
     cal_yaml_path = os.path.join(data_path, 'cal.yaml')
 
@@ -99,7 +104,7 @@ def save_times():
     except:
         cal_dict = OrderedDict()
 
-    param = str(param_select.value)
+    param = str(cal_select.value)
     bound = str(bound_select.value)
 
     # TODO add date created/git has
@@ -121,6 +126,7 @@ def save_times():
 import os
 import numpy
 import sys
+import subprocess
 
 #from bokeh.layouts import layout
 from bokeh.layouts import widgetbox
@@ -129,30 +135,27 @@ from bokeh.models import Span, Label
 from bokeh.models import PanTool, WheelZoomTool, BoxZoomTool, HoverTool
 from bokeh.models import ColumnDataSource
 #from bokeh.models.widgets import Tabs, Panel
-from bokeh.models.widgets import Slider, Select, TextInput
 from bokeh.models.widgets import Button
+from bokeh.models.widgets import CheckboxButtonGroup
+from bokeh.models.widgets import Slider, Select, TextInput
 from bokeh.io import curdoc
 
-from pylleo import lleoio
+from pylleo.pylleo import lleoio
 
 # DATA
 #------------------------------------------------------------------------------
 
 # Setup Accelerometer data
-# TODO remove
-#base_path = ('/home/ryan/Desktop/edu/01_PhD/projects/smartmove/data/'
-#             'lleo_coexist/Acceleration/')
-#exp_path = ('20160418_W190PD3GT_34840_Skinny_2Neutral')
-#data_path = os.path.join(base_path, exp_path)
-
-data_path = sys.argv[1]
+sample_f = int(sys.argv[1])
+data_path = sys.argv[2]
 
 # TODO handle lleo mag, and other tags...
 param_strs = ['Acceleration-X', 'Acceleration-Y', 'Acceleration-Z', 'Depth',
               'Propeller', 'Temperature']
 
 meta = lleoio.read_meta(data_path, param_strs, n_header=10)
-acc, depth, prop, temp = lleoio.read_data(meta, data_path, n_header=10, sample_f=20)
+acc, depth, prop, temp = lleoio.read_data(meta, data_path, n_header=10,
+                                          sample_f=sample_f)
 
 # TODO make data output similar to dtag, remove this
 A = acc[acc.keys()[1:]].values.astype(float)
@@ -178,7 +181,11 @@ t_min = min(dates)
 t_max = max(dates)
 acc_slider = Slider(title='Timestep', start=t_min, end=t_max, value=t_min, step=1)
 
-param_select = Select(title="Param:", value=param_strs[0], options=param_strs)
+# TODO generalize this for plotting the lines too
+param_checkbox = CheckboxButtonGroup(labels=["x", "y", "z"], active=[0, 1, 2])
+
+cal_select = Select(title="Calibrate Param:", value=param_strs[0], options=param_strs)
+
 bound_select = Select(title="Bound:", value='lower', options=['lower', 'upper'])
 
 # User input start end times, save to cal
@@ -188,7 +195,7 @@ end_input = TextInput(value='0', title='end:')
 button_save = Button(label='Save Times', button_type='success')
 button_save.on_click(save_times)
 
-controls = [acc_slider, param_select, bound_select, start_input, end_input,
+controls = [acc_slider, param_checkbox, cal_select, bound_select, start_input, end_input,
             button_save]
 
 
@@ -209,7 +216,7 @@ hover = HoverTool(tooltips=[('index', '$index'),
 
 #'pan,wheel_zoom,box_zoom,reset,hover'
 tools = [PanTool(), WheelZoomTool(), BoxZoomTool(), hover]
-p = plot_triaxial(acc, 300, 800, tools)
+p, lines = plot_triaxial(acc, 300, 800, tools)
 
 # Add line for current video time
 vline = Span(location=0, dimension='height', line_color='red', line_width=3)
@@ -224,19 +231,8 @@ for control in controls:
 
 inputs = HBox(widgetbox(*controls), width=800)
 
-# TODO show each parameter to get calibration times as own tab
-
-#l1 = layout([[p]], sizing_mode='fixed')
-#l2 = layout([[p]],sizing_mode='fixed')
-#
-#tab1 = Panel(child=l1,title='This is Tab 1')
-#tab2 = Panel(child=l2,title='This is Tab 2')
-#
-#tabs = Tabs(tabs=[ tab1, tab2 ])
-
 # initial load of the data
 update(None, None, None)
 
 #TODO update to widget, hbox depreciated
 curdoc().add_root(HBox(p, inputs, width=1100))
-#curdoc().add_root(tabs)
