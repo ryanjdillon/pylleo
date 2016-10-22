@@ -92,34 +92,21 @@ def update(attrname, old, new):
 
 def save_times():
     '''Save index from bokeh textinput'''
-    from collections import OrderedDict
     import os
 
     from pylleo.pylleo import yamlutils
+    from pylleo.pylleo import lleocal
 
     cal_yaml_path = os.path.join(data_path, 'cal.yaml')
 
-    try:
-        cal_dict = yamlutils.read_yaml(cal_yaml_path)
-    except:
-        cal_dict = OrderedDict()
+    start = start_input.value
+    end   = end_input.value
 
-    param = str(cal_select.value)
-    bound = str(bound_select.value)
-
-    # TODO add date created/git has
-    # Create dictionary fields if not in meta dict
-    if param not in cal_dict:
-        cal_dict[param] = OrderedDict()
-    if bound not in cal_dict[param]:
-        cal_dict[param][bound] = OrderedDict()
-
-    cal_dict[param][bound]['start'] = start_input.value
-    cal_dict[param][bound]['end']   = end_input.value
-
+    cal_dict = lleocal.load(cal_yaml_path)
+    cal_dict = lleocal.update(cal_dict, param, start, end)
     yamlutils.write_yaml(cal_dict, cal_yaml_path)
 
-    return cal_dict
+    return None
 
 
 # save state to calibration field
