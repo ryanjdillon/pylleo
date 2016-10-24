@@ -92,6 +92,7 @@ def update(attrname, old, new):
 
 def save_times():
     '''Save index from bokeh textinput'''
+    import datetime
     import os
 
     from pylleo.pylleo import lleocal
@@ -133,7 +134,6 @@ def save_poly():
         lower, upper = lleocal.get_cal_data(acc, cal_dict, param)
         poly = list(lleocal.fit1d(lower, upper))
         poly = [float(str(i)) for i in poly]
-        print(type(poly), len(poly), poly)
 
         cal_dict[param]['poly'] = poly
         yamlutils.write_yaml(cal_dict, cal_yaml_path)
