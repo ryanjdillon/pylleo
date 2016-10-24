@@ -4,11 +4,16 @@ def get_cal_data(data_df, cal_dict, param):
 
     param = param.lower().replace(' ','_').replace('-','_')
 
-    idx_lower = (data_df['datetime'] >= cal_dict[param]['lower']['start']) & \
-                (data_df['datetime'] <= cal_dict[param]['lower']['end'])
+    idx_lower_start = cal_dict[param]['lower']['start']
+    idx_lower_end   = cal_dict[param]['lower']['end']
+    idx_upper_start = cal_dict[param]['upper']['start']
+    idx_upper_end   = cal_dict[param]['upper']['end']
 
-    idx_upper = (data_df['datetime'] >= cal_dict[param]['upper']['start']) & \
-                (data_df['datetime'] <= cal_dict[param]['upper']['end'])
+    idx_lower = (data_df.index >= idx_lower_start) & \
+                (data_df.index <= idx_lower_end)
+
+    idx_upper = (data_df.index >= idx_upper_start) & \
+                (data_df.index <= idx_upper_end)
 
     return data_df[param][idx_lower], data_df[param][idx_upper]
 
@@ -16,36 +21,34 @@ def get_cal_data(data_df, cal_dict, param):
 def load(cal_yaml_path):
     '''Load calibration file if exists, else create'''
     from collections import OrderedDict
+    import datetime
     import os
 
     from pylleo.pylleo import yamlutils
-    import datetime
+    from pylleo.pylleo import utils
 
     try:
         cal_dict = yamlutils.read_yaml(cal_yaml_path)
     except:
         cal_dict = OrderedDict()
 
-    param = str(cal_select.value)
-    bound = str(bound_select.value)
-
     # Create dictionary fields if not in meta dict
+    # TODO should check and do a whole file recreate or something
     if 'git_hash' not in cal_dict:
         cal_dict['git_hash'] = utils.get_githash('long')
 
-    if 'date_created' not in cal_dict:
-        fmt = "%Y-%m-%d %H:%M"
-        cal_dict['date_created'] = datetime.datetime.now().strftime(fmt)
+    fmt = "%Y-%m-%d %H:%M:%S"
+    cal_dict['date_modified'] = datetime.datetime.now().strftime(fmt)
 
     if 'experiment' not in cal_dict:
-        cal_dict = os.path.split(data_path)[1]
-
-    cal_dict = update_calibration(cal_dict, param, start, end):
+        base_path, _ = os.path.split(cal_yaml_path)
+        _, experiment = os.path.split(base_path)
+        cal_dict['experiment'] = experiment
 
     return cal_dict
 
 
-def update(cal_dict, param, bound, start, end):
+def update(data_df, cal_dict, param, bound, start, end):
     '''Update calibration times for give parameter and boundary'''
     from collections import OrderedDict
 
@@ -56,8 +59,6 @@ def update(cal_dict, param, bound, start, end):
 
     cal_dict[param][bound]['start'] = start
     cal_dict[param][bound]['end']   = end
-
-    cal_dict[param]['poly'] = fit1d(get_cal_data(data_df, cal_dict, param))
 
     return cal_dict
 
@@ -86,4 +87,12 @@ def fit1d(lower, upper):
     y[:idx] = -1.0 # negative gravity
     y[idx:] =  1.0 # positive gravity
 
-    return polyfit(x, y, deg=1)
+    return numpy.polyfit(x, y, deg=1)
+
+def apply_poly(data_df, cal_dict, param):
+    '''Apply poly fit to data array'''
+    import numpy
+
+    poly = cal_dict[param]['poly']
+
+    return numpy.polyval(poly, data_df[param])
