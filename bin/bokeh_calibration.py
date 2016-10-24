@@ -38,7 +38,7 @@ def date_string_nano(timestamp):
 
     return s
 
-
+# TODO get rid of data_df from passed params
 def plot_triaxial(data_df, height, width, tools):
     '''Plot pandas dataframe containing an x, y, and z column'''
     import bokeh.plotting
@@ -94,17 +94,51 @@ def save_times():
     '''Save index from bokeh textinput'''
     import os
 
-    from pylleo.pylleo import yamlutils
     from pylleo.pylleo import lleocal
+    from pylleo.pylleo import yamlutils
 
     cal_yaml_path = os.path.join(data_path, 'cal.yaml')
 
-    start = start_input.value
-    end   = end_input.value
+    param = (param_select.value).lower().replace('-','_')
+    bound = bound_select.value
+    start = int(start_input.value)
+    end   = int(end_input.value)
+
+    t_now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(t_now, 'UPDATE CAL TIMES: {}, {}'.format(param, bound))
 
     cal_dict = lleocal.load(cal_yaml_path)
-    cal_dict = lleocal.update(cal_dict, param, start, end)
+    cal_dict = lleocal.update(acc, cal_dict, param, bound, start, end)
     yamlutils.write_yaml(cal_dict, cal_yaml_path)
+
+    return None
+
+def save_poly():
+    '''Perform polyfit once bounds selected'''
+    import datetime
+
+    from pylleo.pylleo import lleocal
+    from pylleo.pylleo import yamlutils
+
+    # TODO perhaps put check for bounds and message here
+    cal_yaml_path = os.path.join(data_path, 'cal.yaml')
+    cal_dict = lleocal.load(cal_yaml_path)
+
+    param = (param_select.value).lower().replace('-','_')
+
+    try:
+        t_now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(t_now, 'SAVE POLY: {}'.format(param))
+
+        lower, upper = lleocal.get_cal_data(acc, cal_dict, param)
+        poly = list(lleocal.fit1d(lower, upper))
+        poly = [float(str(i)) for i in poly]
+        print(type(poly), len(poly), poly)
+
+        cal_dict[param]['poly'] = poly
+        yamlutils.write_yaml(cal_dict, cal_yaml_path)
+    except:
+        pass
 
     return None
 
@@ -133,8 +167,9 @@ from pylleo.pylleo import lleoio
 #------------------------------------------------------------------------------
 
 # Setup Accelerometer data
-sample_f = int(sys.argv[1])
-data_path = sys.argv[2]
+args = sys.argv
+sample_f = int(args[1])
+data_path = args[2]
 
 # TODO handle lleo mag, and other tags...
 param_strs = ['Acceleration-X', 'Acceleration-Y', 'Acceleration-Z', 'Depth',
@@ -145,16 +180,16 @@ acc, depth, prop, temp = lleoio.read_data(meta, data_path, n_header=10,
                                           sample_f=sample_f)
 
 # TODO make data output similar to dtag, remove this
-A = acc[acc.keys()[1:]].values.astype(float)
+# A = acc[acc.keys()[1:]].values.astype(float)
 
 # Timestamps in epoch time and strings to nanosecond
 dates = timestamp_to_epoch(acc['datetimes'])
 #dates_str = [date_string_nano(d) for d in dates]
 
 # Create Column Data Source that will be used by the plot
-source = ColumnDataSource(data=dict(x    = list(A[:,0]),
-                                    y    = list(A[:,1]),
-                                    z    = list(A[:,2]),
+source = ColumnDataSource(data=dict(x    = list(acc['acceleration_x'].values),
+                                    y    = list(acc['acceleration_y'].values),
+                                    z    = list(acc['acceleration_z'].values),
                                     date = list(dates),))
 
 # Input
@@ -171,9 +206,11 @@ acc_slider = Slider(title='Timestep', start=t_min, end=t_max, value=t_min, step=
 # TODO generalize this for plotting the lines too
 param_checkbox = CheckboxButtonGroup(labels=["x", "y", "z"], active=[0, 1, 2])
 
-cal_select = Select(title="Calibrate Param:", value=param_strs[0], options=param_strs)
+param_select = Select(title="Calibrate Param:", value=param_strs[0],
+                      options=param_strs)
 
-bound_select = Select(title="Bound:", value='lower', options=['lower', 'upper'])
+bound_select = Select(title="Bound:", value='lower',
+                      options=['lower', 'upper'])
 
 # User input start end times, save to cal
 start_input = TextInput(value='0', title='start:')
@@ -182,8 +219,11 @@ end_input = TextInput(value='0', title='end:')
 button_save = Button(label='Save Times', button_type='success')
 button_save.on_click(save_times)
 
-controls = [acc_slider, param_checkbox, cal_select, bound_select, start_input, end_input,
-            button_save]
+button_poly = Button(label='Perform Polyfit', button_type='success')
+button_poly.on_click(save_poly)
+
+controls = [acc_slider, param_checkbox, param_select, bound_select,
+            start_input, end_input, button_save, button_poly]
 
 
 # Plotting
