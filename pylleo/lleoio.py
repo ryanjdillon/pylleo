@@ -74,6 +74,8 @@ def read_meta(data_path, tag_model, tag_id):
 
 
     def __create_meta(data_path, tag_model, tag_id):
+        '''Create meta data dictionary'''
+        import datetime
 
         param_strs = load_tag_params(tag_model)
 
@@ -85,6 +87,10 @@ def read_meta(data_path, tag_model, tag_id):
         meta['versions'] = utils.get_versions()
         meta['tag_model'] = tag_model
         meta['tag_id'] = tag_id
+
+        fmt = "%Y-%m-%d %H:%M:%S"
+        meta['date_modified'] = datetime.datetime.now().strftime(fmt)
+
         meta['parameters'] = OrderedDict()
         meta['parameters']['n_header'] = n_header
 
@@ -106,6 +112,8 @@ def read_meta(data_path, tag_model, tag_id):
         # If current version the not same as meta version, create new
         current_version = utils.get_githash('long')
         meta_version = meta['versions']['pylleo']
+        print('current hash:', current_version)
+        print('   meta hash:' , meta_version)
         if (current_version!=meta_version):
             meta = __create_meta(data_path, tag_model, tag_id)
 
@@ -131,7 +139,7 @@ def read_data(meta, data_path, sample_f=1):
 
     from pylleo.pylleo import utils
 
-    #TODO decide how to truncate data, sample_f/n
+    #TODO pass params in meta directly, remove dependence on meta
 
     def __calc_datetimes(meta, param_str, n_timestamps=None):
         '''Combine accelerometry data'''
