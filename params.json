@@ -1,0 +1,6 @@
+{
+  "name": "Pylleo",
+  "tagline": "Little Leonardo Accelerometer Utilities",
+  "body": "## Little Leonardo Toolbox\r\nThe Little Leonardo Toolbox is a collection of utilities for loading, calibrating, and filtering accelerometer data produced by accelerometer sensors developed by [Little Leonardo Co.](http://l-leo.com/eng/).\r\n\r\n* [Documentation](pylleo.readthedocs.io)\r\n* [GitHub repository](https://github.com/ryanjdillon/pylleo)\r\n\r\n### Authors and Contributors\r\nThe code here has been written by Ryan J. Dillon (@ryanjdillon).\r\n",
+  "note": "Don't delete this file! It's used internally to help with page regeneration."
+}
