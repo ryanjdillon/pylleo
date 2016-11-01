@@ -69,7 +69,6 @@ def read_meta(data_path, tag_model, tag_id):
                 line = f.readline()
                 key, val = __parse_meta_line(line)
                 meta_dict['parameters'][val_ch][key] = val.strip()
-                meta_dict['parameters'][val_ch]['n_header'] = n_header
 
         return meta
 
@@ -90,11 +89,11 @@ def read_meta(data_path, tag_model, tag_id):
     else:
         # Create dictionary of meta data
         meta = OrderedDict()
-        meta['git_hash'] = utils.get_githash('long')
-        meta['n_header'] = n_header
+        meta['versions'] = utils.get_versions()
         meta['tag_model'] = tag_model
         meta['tag_id'] = tag_id
         meta['parameters'] = OrderedDict()
+        meta['parameters']['n_header'] = n_header
 
         for param_str in param_strs:
             print('Create meta entry for {}'.format(param_str))
@@ -168,11 +167,12 @@ def read_data(meta, data_path, sample_f=1):
         file_path = get_file_path(data_path, param_str, '.TXT')
         pickle_file = os.path.join(data_path, 'pydata_'+param_str+'.p')
         col_name = utils.posix_string(param_str)
-        n_header = meta['n_header']
+        n_header = meta['parameters']['n_header']
 
-        # Check if pickle file exists, else create dataframe
-        # TODO check version in meta
-        if os.path.exists(pickle_file):
+        # Load pickle file exists and code unchanged
+        current_version = utils.get_githash('long')
+        meta_version = meta['versions']['pylleo']
+        if os.path.exists(pickle_file) and (current_version==meta_version):
             df = pandas.read_pickle(pickle_file)
         else:
             data      = numpy.genfromtxt(file_path, skip_header=n_header)
