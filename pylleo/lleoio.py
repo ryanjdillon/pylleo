@@ -1,8 +1,16 @@
 
-def slice_dataframe(df, n):
-    '''Return ever n sample from dataframe'''
-    # TODO move to tools module
-    return df.iloc[::n,:]
+def load_tag_params(tag_model):
+    '''Load param strs and n_header based on model of tag model'''
+
+    tags = dict()
+    tags['W190PD3GT'] = ['Acceleration-X', 'Acceleration-Y', 'Acceleration-Z',
+                         'Depth', 'Propeller', 'Temperature']
+
+    # Return tag parameters if found, else raise error
+    if tag_model in tags:
+        return tags[tag_model]
+    else:
+        raise KeyError('{} not found in tag dictionary'.format(tag_model))
 
 
 def get_file_path(data_path, search_str, file_ext):
@@ -23,7 +31,7 @@ def get_file_path(data_path, search_str, file_ext):
     return file_path
 
 
-def read_meta(data_path, param_strs, n_header):
+def read_meta(data_path, tag_model, tag_id):
     '''Read meta data from Little Leonardo data header rows'''
     from collections import OrderedDict
     import os
@@ -53,13 +61,15 @@ def read_meta(data_path, param_strs, n_header):
             # Create child dictionary for channel / file
             line = f.readline()
             key_ch, val_ch = __parse_meta_line(line)
-            meta_dict[val_ch] = OrderedDict()
+            val_ch = utils.posix_string(val_ch)
+            meta_dict['parameters'][val_ch] = OrderedDict()
 
             # Write header values to channel dict
             for _ in range(n_header-2):
                 line = f.readline()
                 key, val = __parse_meta_line(line)
-                meta_dict[val_ch][key] = val.strip()
+                meta_dict['parameters'][val_ch][key] = val.strip()
+                meta_dict['parameters'][val_ch]['n_header'] = n_header
 
         return meta
 
@@ -67,7 +77,12 @@ def read_meta(data_path, param_strs, n_header):
     # Load meta data from YAML file if it already exists
     meta_yaml_path = os.path.join(data_path, 'meta.yaml')
 
-    # TODO check if git hash has changed, if so re-do
+    param_strs = load_tag_params(tag_model)
+
+    # TODO determine n_header automatically
+    n_header = 10
+
+    # Load file if exists else create
     if os.path.isfile(meta_yaml_path):
         meta = yamlutils.read_yaml(meta_yaml_path)
 
@@ -76,6 +91,10 @@ def read_meta(data_path, param_strs, n_header):
         # Create dictionary of meta data
         meta = OrderedDict()
         meta['git_hash'] = utils.get_githash('long')
+        meta['n_header'] = n_header
+        meta['tag_model'] = tag_model
+        meta['tag_id'] = tag_id
+        meta['parameters'] = OrderedDict()
 
         for param_str in param_strs:
             print('Create meta entry for {}'.format(param_str))
@@ -87,7 +106,7 @@ def read_meta(data_path, param_strs, n_header):
     return meta
 
 
-def read_data(meta, data_path, n_header, sample_f=1):
+def read_data(meta, data_path, sample_f=1):
     '''Read accelerometry data from leonardo txt files
 
     sample_f: frequency of values to return, ie. every 'sample_f' values
@@ -98,6 +117,8 @@ def read_data(meta, data_path, n_header, sample_f=1):
     '''
     import pandas
 
+    from pylleo.pylleo import utils
+
     #TODO decide how to truncate data, sample_f/n
 
     def __calc_datetimes(meta, param_str, n_timestamps=None):
@@ -105,6 +126,7 @@ def read_data(meta, data_path, n_header, sample_f=1):
         from datetime import datetime, timedelta
         import pandas
 
+        param_str = utils.posix_string(param_str)
         date = meta[param_str]['Start date']
         time = meta[param_str]['Start time']
 
@@ -134,16 +156,19 @@ def read_data(meta, data_path, n_header, sample_f=1):
         return datetimes
 
 
-    def __read_data_file(meta, data_path, param_str, n_header):
+    def __read_data_file(meta, data_path, param_str):
         '''Read single Little Leonardo txt data file'''
         import numpy
         import os
         import pandas
 
+        from pylleo.pylleo import utils
+
         # Get path of data file and associated pickle file
         file_path = get_file_path(data_path, param_str, '.TXT')
         pickle_file = os.path.join(data_path, 'pydata_'+param_str+'.p')
-        col_name = param_str.lower().replace(' ','_').replace('-','_')
+        col_name = utils.posix_string(param_str)
+        n_header = meta['n_header']
 
         # Check if pickle file exists, else create dataframe
         # TODO check version in meta
@@ -159,11 +184,10 @@ def read_data(meta, data_path, n_header, sample_f=1):
 
         return df
 
-
     # Read in data files to pandas dataframes
-    acc_x = __read_data_file(meta, data_path, 'Acceleration-X', n_header)
-    acc_y = __read_data_file(meta, data_path, 'Acceleration-Y', n_header)
-    acc_z = __read_data_file(meta, data_path, 'Acceleration-Z', n_header)
+    acc_x = __read_data_file(meta, data_path, 'Acceleration-X')
+    acc_y = __read_data_file(meta, data_path, 'Acceleration-Y')
+    acc_z = __read_data_file(meta, data_path, 'Acceleration-Z')
 
     idx = min(len(acc_x), len(acc_y), len(acc_z))
     acc_x = acc_x.iloc[:idx]
@@ -174,8 +198,8 @@ def read_data(meta, data_path, n_header, sample_f=1):
                          acc_y['acceleration_y'],
                          acc_z['acceleration_z']], axis=1)
 
-    depth = __read_data_file(meta, data_path, 'Depth', n_header)
-    prop  = __read_data_file(meta, data_path, 'Propeller', n_header)
-    temp  = __read_data_file(meta, data_path, 'Temperature', n_header)
+    depth = __read_data_file(meta, data_path, 'Depth')
+    prop  = __read_data_file(meta, data_path, 'Propeller')
+    temp  = __read_data_file(meta, data_path, 'Temperature')
 
-    return (slice_dataframe(d, sample_f) for d in [acc, depth, prop, temp])
+    return (d.iloc[::sample_f,:] for d in [acc, depth, prop, temp])
