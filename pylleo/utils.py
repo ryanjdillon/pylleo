@@ -1,4 +1,29 @@
 
+def get_versions():
+    '''Return versions for repository and packages in requirements file'''
+    from collections import OrderedDict
+    import os
+
+    import pylleo
+
+    versions = OrderedDict()
+
+    # Add git hash for pylleo to dict
+    versions['pylleo'] = get_githash('long')
+
+    # Get path to pylleo requirements file
+    module_path = os.path.split(pylleo.__file__)[0]
+    requirements = os.path.join(module_path, 'requirements.txt')
+
+    # Add packages and versions to dictionary
+    with open(requirements) as f:
+        for l in f.readlines():
+            package, version = l.strip().split('==')
+            versions[package] = version
+
+    return versions
+
+
 def posix_string(s):
     'Return string in lower case with spaces and dashes as underscores'''
     return s.lower().replace(' ','_').replace('-','_')
