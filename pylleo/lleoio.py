@@ -50,7 +50,7 @@ def read_meta(data_path, tag_model, tag_id):
         return key.strip(), val.strip()
 
 
-    def __read_meta_all(file_path, meta_dict, n_header):
+    def __read_meta_all(file_path, meta, n_header):
         '''Read all meta data from header rows of data file'''
 
         with open(file_path, 'r', encoding='ISO-8859-1') as f:
@@ -62,31 +62,24 @@ def read_meta(data_path, tag_model, tag_id):
             line = f.readline()
             key_ch, val_ch = __parse_meta_line(line)
             val_ch = utils.posix_string(val_ch)
-            meta_dict['parameters'][val_ch] = OrderedDict()
+            meta['parameters'][val_ch] = OrderedDict()
 
             # Write header values to channel dict
             for _ in range(n_header-2):
                 line = f.readline()
                 key, val = __parse_meta_line(line)
-                meta_dict['parameters'][val_ch][key] = val.strip()
+                meta['parameters'][val_ch][key] = val.strip()
 
         return meta
 
 
-    # Load meta data from YAML file if it already exists
-    meta_yaml_path = os.path.join(data_path, 'meta.yaml')
+    def __create_meta(data_path, tag_model, tag_id):
 
-    param_strs = load_tag_params(tag_model)
+        param_strs = load_tag_params(tag_model)
 
-    # TODO determine n_header automatically
-    n_header = 10
+        # TODO determine n_header automatically
+        n_header = 10
 
-    # Load file if exists else create
-    if os.path.isfile(meta_yaml_path):
-        meta = yamlutils.read_yaml(meta_yaml_path)
-
-    # Else create meta dictionary and save to YAML
-    else:
         # Create dictionary of meta data
         meta = OrderedDict()
         meta['versions'] = utils.get_versions()
@@ -99,6 +92,26 @@ def read_meta(data_path, tag_model, tag_id):
             print('Create meta entry for {}'.format(param_str))
             file_path = get_file_path(data_path, param_str, '.TXT')
             meta      = __read_meta_all(file_path, meta, n_header=n_header)
+
+        return meta
+
+
+    # Load meta data from YAML file if it already exists
+    meta_yaml_path = os.path.join(data_path, 'meta.yaml')
+
+    # Load file if exists else create
+    if os.path.isfile(meta_yaml_path):
+        meta = yamlutils.read_yaml(meta_yaml_path)
+
+        # If current version the not same as meta version, create new
+        current_version = utils.get_githash('long')
+        meta_version = meta['versions']['pylleo']
+        if (current_version!=meta_version):
+            meta = __create_meta(data_path, tag_model, tag_id)
+
+    # Else create meta dictionary and save to YAML
+    else:
+        meta = __create_meta(data_path, tag_model, tag_id)
 
         yamlutils.write_yaml(meta, meta_yaml_path)
 
@@ -126,8 +139,8 @@ def read_data(meta, data_path, sample_f=1):
         import pandas
 
         param_str = utils.posix_string(param_str)
-        date = meta[param_str]['Start date']
-        time = meta[param_str]['Start time']
+        date = meta['parameters'][param_str]['Start date']
+        time = meta['parameters'][param_str]['Start time']
 
         fmts  = ['%Y/%m/%d %H%M%S', '%d/%m/%Y %H%M%S', '%d/%m/%Y %I%M%S %p',]
 
@@ -144,8 +157,8 @@ def read_data(meta, data_path, sample_f=1):
 
         # Create datetime array
         datetimes = list()
-        increment = float(meta[param_str]['Interval(Sec)'])
-        for i in range(int(meta[param_str]['Data size'])):
+        increment = float(meta['parameters'][param_str]['Interval(Sec)'])
+        for i in range(int(meta['parameters'][param_str]['Data size'])):
             secs = increment*i
             datetimes.append(start + timedelta(seconds=secs))
 
