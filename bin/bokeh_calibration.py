@@ -108,11 +108,12 @@ def save_times():
     t_now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(t_now, 'UPDATE CAL TIMES: {}, {}'.format(param, bound))
 
-    cal_dict = lleocal.load(cal_yaml_path)
+    cal_dict = lleocal.read_cal(cal_yaml_path)
     cal_dict = lleocal.update(acc, cal_dict, param, bound, start, end)
     yamlutils.write_yaml(cal_dict, cal_yaml_path)
 
     return None
+
 
 def save_poly():
     '''Perform polyfit once bounds selected'''
@@ -123,7 +124,7 @@ def save_poly():
 
     # TODO perhaps put check for bounds and message here
     cal_yaml_path = os.path.join(data_path, 'cal.yaml')
-    cal_dict = lleocal.load(cal_yaml_path)
+    cal_dict = lleocal.read_cal(cal_yaml_path)
 
     param = (param_select.value).lower().replace('-','_')
 
@@ -135,10 +136,10 @@ def save_poly():
         poly = list(lleocal.fit1d(lower, upper))
         poly = [float(str(i)) for i in poly]
 
-        cal_dict[param]['poly'] = poly
+        cal_dict['parameters'][param]['poly'] = poly
         yamlutils.write_yaml(cal_dict, cal_yaml_path)
     except:
-        pass
+        print('Problem saving polyfit')
 
     return None
 
@@ -162,25 +163,32 @@ from bokeh.models.widgets import Slider, Select, TextInput
 from bokeh.io import curdoc
 
 from pylleo.pylleo import lleoio
+from pylleo.pylleo import utils
 
 # DATA
 #------------------------------------------------------------------------------
 
-# Setup Accelerometer data
+# Handle commanline arguments
 args = sys.argv
-sample_f = int(args[1])
-data_path = args[2]
+
+if len(args) <= 1:
+    print('Usage: bokeh serve --show bokeh_calibration.py '
+          '--args <tag_model> <tag_id> <sample_f> <data_path>')
+    sys.exit()
+
+# bokeh serve --show bokeh_calibration.py --args W190PD3GT 34839 1 /home/ryan/Desktop/edu/01_PhD/projects/smartmove/data/lleo_coexist/Acceleration/20150311_W190-PD3GT_34839_Skinny_Control
+
+tag_model = args[1]
+tag_id    = args[2]
+sample_f  = int(args[3])
+data_path = args[4]
 
 # TODO handle lleo mag, and other tags...
-param_strs = ['Acceleration-X', 'Acceleration-Y', 'Acceleration-Z', 'Depth',
-              'Propeller', 'Temperature']
+meta = lleoio.read_meta(data_path, tag_model, tag_id)
+acc, depth, prop, temp = lleoio.read_data(meta, data_path, sample_f=sample_f)
 
-meta = lleoio.read_meta(data_path, param_strs, n_header=10)
-acc, depth, prop, temp = lleoio.read_data(meta, data_path, n_header=10,
-                                          sample_f=sample_f)
-
-# TODO make data output similar to dtag, remove this
-# A = acc[acc.keys()[1:]].values.astype(float)
+param_strs = lleoio.load_tag_params(tag_model)
+param_strs = [utils.posix_string(p) for p in param_strs]
 
 # Timestamps in epoch time and strings to nanosecond
 dates = timestamp_to_epoch(acc['datetimes'])
@@ -191,7 +199,6 @@ source = ColumnDataSource(data=dict(x    = list(acc['acceleration_x'].values),
                                     y    = list(acc['acceleration_y'].values),
                                     z    = list(acc['acceleration_z'].values),
                                     date = list(dates),))
-
 # Input
 #------------------------------------------------------------------------------
 

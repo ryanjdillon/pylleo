@@ -4,10 +4,10 @@ def get_cal_data(data_df, cal_dict, param):
 
     param = param.lower().replace(' ','_').replace('-','_')
 
-    idx_lower_start = cal_dict[param]['lower']['start']
-    idx_lower_end   = cal_dict[param]['lower']['end']
-    idx_upper_start = cal_dict[param]['upper']['start']
-    idx_upper_end   = cal_dict[param]['upper']['end']
+    idx_lower_start = cal_dict['parameters'][param]['lower']['start']
+    idx_lower_end   = cal_dict['parameters'][param]['lower']['end']
+    idx_upper_start = cal_dict['parameters'][param]['upper']['start']
+    idx_upper_end   = cal_dict['parameters'][param]['upper']['end']
 
     idx_lower = (data_df.index >= idx_lower_start) & \
                 (data_df.index <= idx_lower_end)
@@ -38,12 +38,14 @@ def read_cal(cal_yaml_path):
         _, experiment = os.path.split(base_path)
         cal_dict['experiment'] = experiment
 
+        return cal_dict
 
     # Try reading cal file, else create
-    try:
+    if os.path.isfile(cal_yaml_path):
         cal_dict = yamlutils.read_yaml(cal_yaml_path)
-    except:
+    else:
         cal_dict = __create_cal(cal_yaml_path)
+        cal_dict['parameters'] = OrderedDict()
 
     fmt = "%Y-%m-%d %H:%M:%S"
     cal_dict['date_modified'] = datetime.datetime.now().strftime(fmt)
@@ -62,13 +64,13 @@ def update(data_df, cal_dict, param, bound, start, end):
     '''Update calibration times for give parameter and boundary'''
     from collections import OrderedDict
 
-    if param not in cal_dict:
-        cal_dict[param] = OrderedDict()
-    if bound not in cal_dict[param]:
-        cal_dict[param][bound] = OrderedDict()
+    if param not in cal_dict['parameters']:
+        cal_dict['parameters'][param] = OrderedDict()
+    if bound not in cal_dict['parameters'][param]:
+        cal_dict['parameters'][param][bound] = OrderedDict()
 
-    cal_dict[param][bound]['start'] = start
-    cal_dict[param][bound]['end']   = end
+    cal_dict['parameters'][param][bound]['start'] = start
+    cal_dict['parameters'][param][bound]['end']   = end
 
     return cal_dict
 
@@ -103,6 +105,6 @@ def apply_poly(data_df, cal_dict, param):
     '''Apply poly fit to data array'''
     import numpy
 
-    poly = cal_dict[param]['poly']
+    poly = cal_dict['parameters'][param]['poly']
 
     return numpy.polyval(poly, data_df[param])
