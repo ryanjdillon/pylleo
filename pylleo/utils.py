@@ -1,4 +1,9 @@
 
+def posix_string(s):
+    'Return string in lower case with spaces and dashes as underscores'''
+    return s.lower().replace(' ','_').replace('-','_')
+
+
 def get_githash(hash_type):
     '''Add git commit for reference to code that produced data
 
