@@ -18,33 +18,43 @@ def get_cal_data(data_df, cal_dict, param):
     return data_df[param][idx_lower], data_df[param][idx_upper]
 
 
-def load(cal_yaml_path):
+def read_cal(cal_yaml_path):
     '''Load calibration file if exists, else create'''
     from collections import OrderedDict
     import datetime
     import os
+    import warnings
 
     from pylleo.pylleo import yamlutils
     from pylleo.pylleo import utils
 
-    try:
-        cal_dict = yamlutils.read_yaml(cal_yaml_path)
-    except:
+    def __create_cal(cal_yaml_path):
         cal_dict = OrderedDict()
 
-    # Create dictionary fields if not in meta dict
-    # TODO should check and do a whole file recreate or something
-    if 'git_hash' not in cal_dict:
-        cal_dict['git_hash'] = utils.get_githash('long')
+        cal_dict['versions'] = utils.get_versions()
 
-    fmt = "%Y-%m-%d %H:%M:%S"
-    cal_dict['date_modified'] = datetime.datetime.now().strftime(fmt)
-
-    if 'experiment' not in cal_dict:
+        # Add experiment name for calibration reference
         base_path, _ = os.path.split(cal_yaml_path)
         _, experiment = os.path.split(base_path)
         cal_dict['experiment'] = experiment
 
+
+    # Try reading cal file, else create
+    try:
+        cal_dict = yamlutils.read_yaml(cal_yaml_path)
+    except:
+        cal_dict = __create_cal(cal_yaml_path)
+
+    fmt = "%Y-%m-%d %H:%M:%S"
+    cal_dict['date_modified'] = datetime.datetime.now().strftime(fmt)
+
+    # TODO necessary?
+    # Give warning if loaded calibration file created with older version
+    current_version = utils.get_githash('long')
+    cal_version = cal_dict['versions']['pylleo']
+    if (current_version!=cal_version):
+        warnings.warn('The calibration file has been created with an '
+                      'older version of Pylleo')
     return cal_dict
 
 
