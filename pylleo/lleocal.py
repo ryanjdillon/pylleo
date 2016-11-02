@@ -106,5 +106,6 @@ def apply_poly(data_df, cal_dict, param):
     import numpy
 
     poly = cal_dict['parameters'][param]['poly']
+    a = numpy.polyval(poly, data_df[param])
 
-    return numpy.polyval(poly, data_df[param])
+    return a.astype(float)
