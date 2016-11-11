@@ -32,7 +32,18 @@ def get_file_path(data_path, search_str, file_ext):
 
 
 def read_meta(data_path, tag_model, tag_id):
-    '''Read meta data from Little Leonardo data header rows'''
+    '''Read meta data from Little Leonardo data header rows
+
+    Args
+    ----
+    data_path: parent directory containing lleo data files
+    tag_model: lleo tag model name
+    tag_id:    lleo tag ID number
+
+    Returns
+    -------
+    meta: dictionary with meta data from header lines of lleo data files
+    '''
     from collections import OrderedDict
     import os
 
@@ -129,11 +140,18 @@ def read_meta(data_path, tag_model, tag_id):
 def read_data(meta, data_path, sample_f=1):
     '''Read accelerometry data from leonardo txt files
 
-    sample_f: frequency of values to return, ie. every 'sample_f' values
+    Args
+    ----
+    meta:      dictionary of meta data from header lines of lleo data files
+    data_path: parent directory containing lleo data files
+    sample_f:  return every `sample_f` data points
 
-    'acc_x', float, X axis [m/s^2]
-    'acc_y', float, Y axis [m/s^2]
-    'acc_z', float, Z axis [m/s^2]
+    Returns
+    -------
+    acc:   pandas dataframe containing accelerometry data on x, y, z axes [m/s^2]
+    depth: pandas dataframe containing depth data [m]
+    prop:  pandas dataframe containing speed data from propeller
+    temp:  pandas dataframe containing temperature data
     '''
     import pandas
 
