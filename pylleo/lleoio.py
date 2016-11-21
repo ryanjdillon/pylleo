@@ -102,6 +102,7 @@ def read_meta(data_path, tag_model, tag_id):
         meta['versions'] = utils.get_versions()
         meta['tag_model'] = tag_model
         meta['tag_id'] = tag_id
+        meta['experiment'] = os.path.split(data_path)[1]
 
         fmt = "%Y-%m-%d %H:%M:%S"
         meta['date_modified'] = datetime.datetime.now().strftime(fmt)
@@ -141,7 +142,7 @@ def read_meta(data_path, tag_model, tag_id):
     return meta
 
 
-def read_data(meta, data_path, sample_f=1):
+def read_data(meta, data_path, sample_f=1, decimate=False):
     '''Read accelerometry data from leonardo txt files
 
     Args
@@ -164,6 +165,7 @@ def read_data(meta, data_path, sample_f=1):
     temp: 2xn pd.dataframe
         pandas dataframe containing temperature data
     '''
+    import os
     import pandas
 
     from pylleo.pylleo import utils
@@ -185,7 +187,7 @@ def read_data(meta, data_path, sample_f=1):
             try:
                 start = pandas.to_datetime('{} {}'.format(date,time), format=fmt)
             except:
-                print('{:14} - date format {:18} incorrect. '
+                print('{:14} - date format {:18} incorrect.'
                       'Trying next.'.format(param_str, fmt))
             else:
                 print('{:14} - date format {:18} correct.'.format(param_str,
@@ -215,41 +217,44 @@ def read_data(meta, data_path, sample_f=1):
 
         # Get path of data file and associated pickle file
         file_path = get_file_path(data_path, param_str, '.TXT')
-        pickle_file = os.path.join(data_path, 'pydata_'+param_str+'.p')
         col_name = utils.posix_string(param_str)
         n_header = meta['parameters']['n_header']
 
-        # Load pickle file exists and code unchanged
-        current_version = utils.get_githash('long')
-        meta_version = meta['versions']['pylleo']
-        if os.path.exists(pickle_file) and (current_version==meta_version):
-            df = pandas.read_pickle(pickle_file)
-        else:
-            data      = numpy.genfromtxt(file_path, skip_header=n_header)
-            datetimes = __calc_datetimes(meta, param_str, n_timestamps=len(data))
-            data      = numpy.vstack((datetimes, data)).T
-            df        = pandas.DataFrame(data, columns=['datetimes', col_name])
-
-            df.to_pickle(pickle_file)
+        data      = numpy.genfromtxt(file_path, skip_header=n_header)
+        datetimes = __calc_datetimes(meta, param_str, n_timestamps=len(data))
+        data      = numpy.vstack((datetimes, data)).T
+        df        = pandas.DataFrame(data, columns=['datetimes', col_name])
 
         return df
 
-    # Read in data files to pandas dataframes
-    acc_x = __read_data_file(meta, data_path, 'Acceleration-X')
-    acc_y = __read_data_file(meta, data_path, 'Acceleration-Y')
-    acc_z = __read_data_file(meta, data_path, 'Acceleration-Z')
+    # Get list of string parameter names for tag model
+    param_names = load_tag_params(meta['tag_model'])
 
-    idx = min(len(acc_x), len(acc_y), len(acc_z))
-    acc_x = acc_x.iloc[:idx]
-    acc_y = acc_y.iloc[:idx]
-    acc_z = acc_z.iloc[:idx]
+    # Load pickle file exists and code unchanged
+    pickle_file = os.path.join(data_path, 'pydata_'+meta['experiment']+'.p')
+    current_version = utils.get_githash('long')
+    meta_version = meta['versions']['pylleo']
 
-    acc = pandas.concat([acc_x,
-                         acc_y['acceleration_y'],
-                         acc_z['acceleration_z']], axis=1)
+    # Load or create pandas dataframe with parameters associated with tag model
+    if os.path.exists(pickle_file) and (current_version==meta_version):
+        data_df = pandas.read_pickle(pickle_file)
+    else:
+        first_col = True
+        for name in param_names:
+            next_df = __read_data_file(meta, data_path, name)
+            if first_col == False:
+                data_df = pandas.merge(data_df, next_df, on='datetimes', how='left')
+            else:
+                data_df = next_df
+                first_col = False
 
-    depth = __read_data_file(meta, data_path, 'Depth')
-    prop  = __read_data_file(meta, data_path, 'Propeller')
-    temp  = __read_data_file(meta, data_path, 'Temperature')
+        # Covert columns to `datetime64` or `float64` types
+        data_df = data_df.apply(lambda x: pandas.to_numeric(x, errors='ignore'))
 
-    return (d.iloc[::sample_f,:] for d in [acc, depth, prop, temp])
+        # Save file to pickle
+        data_df.to_pickle(pickle_file)
+
+    # Return dataframe with ever `sample_f` values
+    return data_df.iloc[::sample_f,:]
+
+    # TODO resample/decimate/interpolate

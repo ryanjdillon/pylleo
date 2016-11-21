@@ -185,19 +185,19 @@ data_path = args[4]
 
 # TODO handle lleo mag, and other tags...
 meta = lleoio.read_meta(data_path, tag_model, tag_id)
-acc, depth, prop, temp = lleoio.read_data(meta, data_path, sample_f=sample_f)
+data = lleoio.read_data(meta, data_path, sample_f=sample_f)
 
-param_strs = lleoio.load_tag_params(tag_model)
-param_strs = [utils.posix_string(p) for p in param_strs]
+param_names = lleoio.load_tag_params(tag_model)
+param_names = [utils.posix_string(p) for p in param_names]
 
 # Timestamps in epoch time and strings to nanosecond
 dates = timestamp_to_epoch(acc['datetimes'])
 #dates_str = [date_string_nano(d) for d in dates]
 
 # Create Column Data Source that will be used by the plot
-source = ColumnDataSource(data=dict(x    = list(acc['acceleration_x'].values),
-                                    y    = list(acc['acceleration_y'].values),
-                                    z    = list(acc['acceleration_z'].values),
+source = ColumnDataSource(data=dict(x    = list(data['acceleration_x'].values),
+                                    y    = list(data['acceleration_y'].values),
+                                    z    = list(data['acceleration_z'].values),
                                     date = list(dates),))
 # Input
 #------------------------------------------------------------------------------
@@ -213,8 +213,8 @@ acc_slider = Slider(title='Timestep', start=t_min, end=t_max, value=t_min, step=
 # TODO generalize this for plotting the lines too
 param_checkbox = CheckboxButtonGroup(labels=["x", "y", "z"], active=[0, 1, 2])
 
-param_select = Select(title="Calibrate Param:", value=param_strs[0],
-                      options=param_strs)
+param_select = Select(title="Calibrate Param:", value=param_names[0],
+                      options=param_names)
 
 bound_select = Select(title="Bound:", value='lower',
                       options=['lower', 'upper'])
