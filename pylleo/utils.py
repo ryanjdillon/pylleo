@@ -32,7 +32,16 @@ def posix_string(s):
 def get_githash(hash_type):
     '''Add git commit for reference to code that produced data
 
-    hash_type: 'long' gives full hash, 'short' gives 6 character hash
+    Args
+    ----
+    hash_type: str
+        keyword determining length of has. 'long' gives full hash, 'short'
+        gives 6 character hash
+
+    Returns
+    -------
+    git_hash: str
+        Git hash as a 6 or 40 char string depending on keywork `hash_type`
     '''
     import subprocess
 

@@ -1,6 +1,26 @@
 
 def get_cal_data(data_df, cal_dict, param):
-    '''Get data along specified axis during calibration intervals'''
+    '''Get data along specified axis during calibration intervals
+
+    Args
+    ----
+    data_df: pd.dataframe
+        Pandas dataframe with lleo data
+    cal_dict: dict
+        Calibration dictionary
+
+    Returns
+    -------
+    lower: pandas dataframe
+        slice of lleo datafram containing points at -1g calibration position
+    upper: pandas dataframe
+        slice of lleo datafram containing points at -1g calibration position
+
+    See also
+    --------
+    lleoio.read_data: creates pandas dataframe `data_df`
+    read_cal: creates `cal_dict` and describes fields
+    '''
 
     param = param.lower().replace(' ','_').replace('-','_')
 
@@ -19,7 +39,23 @@ def get_cal_data(data_df, cal_dict, param):
 
 
 def read_cal(cal_yaml_path):
-    '''Load calibration file if exists, else create'''
+    '''Load calibration file if exists, else create
+
+    Args
+    ----
+    cal_yaml_path: str
+
+    Returns
+    -------
+    cal_dict: dict
+        Key value pairs of calibration meta data including:
+        - code versions
+        - date modified
+        - experiment name
+        - parameters:
+            * start/stop indices for calibration points
+            * polyfit coefficients for fitting data to calibration curve
+    '''
     from collections import OrderedDict
     import datetime
     import os
@@ -78,11 +114,27 @@ def update(data_df, cal_dict, param, bound, start, end):
 def fit1d(lower, upper):
     '''Fit acceleration data at lower and upper boundaries of gravity
 
-    # TODO compare agaist alternate linalg method, allows for 2d
-    # for 2d poly, see - http://stackoverflow.com/a/33966967/943773
-    #A = numpy.vstack(lower, upper).transpose()
-    #y = A[:,1]
-    #m, c = numpy.linalg.lstsq(A, y)[0]
+    Args
+    ----
+    lower: pandas dataframe
+        slice of lleo datafram containing points at -1g calibration position
+    upper: pandas dataframe
+        slice of lleo datafram containing points at -1g calibration position
+
+    Returns
+    -------
+    p: ndarray
+        Polynomial coefficients, highest power first. If y was 2-D, the
+        coefficients for k-th data set are in p[:,k]. From `numpy.polyfit()`.
+
+    NOTE
+    ----
+    This method should be compared agaist alternate linalg method, which allows
+    for 2d for 2d poly, see - http://stackoverflow.com/a/33966967/943773
+
+    A = numpy.vstack(lower, upper).transpose()
+    y = A[:,1]
+    m, c = numpy.linalg.lstsq(A, y)[0]
     '''
     import numpy
 
