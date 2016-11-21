@@ -36,13 +36,17 @@ def read_meta(data_path, tag_model, tag_id):
 
     Args
     ----
-    data_path: parent directory containing lleo data files
-    tag_model: lleo tag model name
-    tag_id:    lleo tag ID number
+    data_path: str
+        parent directory containing lleo data files
+    tag_model: str
+        lleo tag model name
+    tag_id: str, int
+        lleo tag ID number
 
     Returns
     -------
-    meta: dictionary with meta data from header lines of lleo data files
+    meta: dict
+        dictionary with meta data from header lines of lleo data files
     '''
     from collections import OrderedDict
     import os
@@ -142,16 +146,23 @@ def read_data(meta, data_path, sample_f=1):
 
     Args
     ----
-    meta:      dictionary of meta data from header lines of lleo data files
-    data_path: parent directory containing lleo data files
-    sample_f:  return every `sample_f` data points
+    meta: dict
+        dictionary of meta data from header lines of lleo data files
+    data_path: str
+        parent directory containing lleo data files
+    sample_f: int
+        return every `sample_f` data points
 
     Returns
     -------
-    acc:   pandas dataframe containing accelerometry data on x, y, z axes [m/s^2]
-    depth: pandas dataframe containing depth data [m]
-    prop:  pandas dataframe containing speed data from propeller
-    temp:  pandas dataframe containing temperature data
+    acc: 4xn pd.dataframe
+        pandas dataframe containing accelerometry data on x, y, z axes [m/s^2]
+    depth: 2xn pd.dataframe
+        pandas dataframe containing depth data [m]
+    prop: 2xn pd.dataframe
+        pandas dataframe containing speed data from propeller
+    temp: 2xn pd.dataframe
+        pandas dataframe containing temperature data
     '''
     import pandas
 
