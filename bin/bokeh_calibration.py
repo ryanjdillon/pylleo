@@ -39,7 +39,7 @@ def date_string_nano(timestamp):
     return s
 
 # TODO get rid of data_df from passed params
-def plot_triaxial(data_df, height, width, tools):
+def plot_triaxial(height, width, tools):
     '''Plot pandas dataframe containing an x, y, and z column'''
     import bokeh.plotting
 
@@ -56,12 +56,12 @@ def plot_triaxial(data_df, height, width, tools):
     return p, lines
 
 
-def select_data(acc, acc_slider):
+def select_data(data, acc_slider):
     '''Get data selection from plot controls'''
 
     slider_dt = epoch_to_timestamp(acc_slider.value)
 
-    data = acc[(acc['datetimes'] == slider_dt)]
+    data = data[data['datetimes'] == slider_dt]
 
     return data
 
@@ -70,7 +70,7 @@ def update(attrname, old, new):
     '''Update plots from selected data'''
     import numpy
 
-    data_selected = select_data(acc, acc_slider)
+    data_selected = select_data(data, acc_slider)
 
     vline.set(location=acc_slider.value)
 
@@ -82,10 +82,10 @@ def update(attrname, old, new):
         # The following can be used to filter/update data,
         # but the amount of data makes this very cpu heavy
 
-        #timesteps = list(data_df['datetime'])
-        #x = list(data_df['acc_x']),
-        #y = list(data_df['acc_y']),
-        #z = list(data_df['acc_z']),
+        #timesteps = list(data['datetime'])
+        #x = list(data['acceleration_x']),
+        #y = list(data['acceleration_y']),
+        #z = list(data['acceleration_z']),
 
     return None
 
@@ -109,7 +109,7 @@ def save_times():
     print(t_now, 'UPDATE CAL TIMES: {}, {}'.format(param, bound))
 
     cal_dict = lleocal.read_cal(cal_yaml_path)
-    cal_dict = lleocal.update(acc, cal_dict, param, bound, start, end)
+    cal_dict = lleocal.update(data, cal_dict, param, bound, start, end)
     yamlutils.write_yaml(cal_dict, cal_yaml_path)
 
     return None
@@ -132,7 +132,7 @@ def save_poly():
         t_now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(t_now, 'SAVE POLY: {}'.format(param))
 
-        lower, upper = lleocal.get_cal_data(acc, cal_dict, param)
+        lower, upper = lleocal.get_cal_data(data, cal_dict, param)
         poly = list(lleocal.fit1d(lower, upper))
         poly = [float(str(i)) for i in poly]
 
@@ -191,7 +191,7 @@ param_names = lleoio.load_tag_params(tag_model)
 param_names = [utils.posix_string(p) for p in param_names]
 
 # Timestamps in epoch time and strings to nanosecond
-dates = timestamp_to_epoch(acc['datetimes'])
+dates = timestamp_to_epoch(data['datetimes'])
 #dates_str = [date_string_nano(d) for d in dates]
 
 # Create Column Data Source that will be used by the plot
@@ -250,7 +250,7 @@ hover = HoverTool(tooltips=[('index', '$index'),
 
 #'pan,wheel_zoom,box_zoom,reset,hover'
 tools = [PanTool(), WheelZoomTool(), BoxZoomTool(), hover]
-p, lines = plot_triaxial(acc, 300, 800, tools)
+p, lines = plot_triaxial(height=300, width=800, tools=tools)
 
 # Add line for current video time
 vline = Span(location=0, dimension='height', line_color='red', line_width=3)
