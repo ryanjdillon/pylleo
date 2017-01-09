@@ -1,3 +1,15 @@
+def get_testdata_path(tag_model):
+    '''Get path to sample data directory for given tag model'''
+    import os
+
+    tag_model = tag_model.upper().replace('-','').replace('_','')
+    sample_path = os.path.join('../datasets/{}'.format(tag_model))
+
+    if not os.path.isdir(sample_path):
+        raise FileNotFoundError('No sample dataset found for tag '
+                                '{}.'.format(tag_model))
+    return sample_path
+
 
 def load_tag_params(tag_model):
     '''Load param strs and n_header based on model of tag model'''
@@ -181,7 +193,11 @@ def read_data(meta, data_path, sample_f=1, decimate=False):
         date = meta['parameters'][param_str]['Start date']
         time = meta['parameters'][param_str]['Start time']
 
-        fmts  = ['%Y/%m/%d %H%M%S', '%d/%m/%Y %H%M%S', '%d/%m/%Y %I%M%S %p',]
+        # TODO problematic if both m/d d/m options
+        fmts  = ['%Y/%m/%d %H%M%S',
+                 '%d/%m/%Y %H%M%S',
+                 '%m/%d/%Y %I%M%S %p',
+                 '%d/%m/%Y %I%M%S %p',]
 
         for fmt in fmts:
             try:
