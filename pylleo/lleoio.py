@@ -154,7 +154,7 @@ def read_meta(data_path, tag_model, tag_id):
     return meta
 
 
-def read_data(meta, data_path, sample_f=1, decimate=False):
+def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
     '''Read accelerometry data from leonardo txt files
 
     Args
@@ -252,7 +252,9 @@ def read_data(meta, data_path, sample_f=1, decimate=False):
     meta_version = meta['versions']['pylleo']
 
     # Load or create pandas dataframe with parameters associated with tag model
-    if os.path.exists(pickle_file) and (current_version==meta_version):
+    if (current_version==meta_version):
+        overwrite=True
+    if os.path.exists(pickle_file) and not overwrite:
         data_df = pandas.read_pickle(pickle_file)
     else:
         first_col = True
