@@ -8,6 +8,11 @@ orientations.
 
 Enter the start and end times of these orientation periods, then click 'save'
 to write those to a calibration YAML file (cal.yaml) in the data directory
+
+Example
+-------
+bokeh serve --show bokeh_calibration.py --args W190PD3GT 34839 1 /home/ryan/Desktop/edu/01_PhD/projects/smartmove/data/lleo_coexist/Acceleration/20150311_W190-PD3GT_34839_Skinny_Control
+
 '''
 
 def timestamp_to_epoch(timestamps):
@@ -175,8 +180,6 @@ if len(args) <= 1:
     print('Usage: bokeh serve --show bokeh_calibration.py '
           '--args <tag_model> <tag_id> <sample_f> <data_path>')
     sys.exit()
-
-# bokeh serve --show bokeh_calibration.py --args W190PD3GT 34839 1 /home/ryan/Desktop/edu/01_PhD/projects/smartmove/data/lleo_coexist/Acceleration/20150311_W190-PD3GT_34839_Skinny_Control
 
 tag_model = args[1]
 tag_id    = args[2]
