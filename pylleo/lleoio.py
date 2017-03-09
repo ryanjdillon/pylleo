@@ -184,14 +184,10 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
 
     #TODO pass params in meta directly, remove dependence on meta
 
-    def __calc_datetimes(meta, param_str, n_timestamps=None):
+    def __calc_datetimes(date, time, interval_s, n_timestamps):
         '''Combine accelerometry data'''
         from datetime import datetime, timedelta
         import pandas
-
-        param_str = utils.posix_string(param_str)
-        date = meta['parameters'][param_str]['Start date']
-        time = meta['parameters'][param_str]['Start time']
 
         # TODO problematic if both m/d d/m options
         fmts  = ['%Y/%m/%d %H%M%S',
@@ -203,22 +199,17 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
             try:
                 start = pandas.to_datetime('{} {}'.format(date,time), format=fmt)
             except:
-                print('{:14} - date format {:18} incorrect.'
-                      'Trying next.'.format(param_str, fmt))
+                print('Date format {:18} incorrect, '
+                      'trying next...'.format(fmt))
             else:
-                print('{:14} - date format {:18} correct.'.format(param_str,
-                                                                   fmt))
+                print('Date format {:18} correct.'.format(fmt))
                 break
 
         # Create datetime array
         datetimes = list()
-        increment = float(meta['parameters'][param_str]['Interval(Sec)'])
-        for i in range(int(meta['parameters'][param_str]['Data size'])):
-            secs = increment*i
+        for i in range(n_timestamps):
+            secs = interval_s*i
             datetimes.append(start + timedelta(seconds=secs))
-
-        if n_timestamps:
-            datetimes = datetimes[:n_timestamps]
 
         return datetimes
 
@@ -236,8 +227,33 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
         col_name = utils.posix_string(param_str)
         n_header = meta['parameters']['n_header']
 
-        data      = numpy.genfromtxt(file_path, skip_header=n_header)
-        datetimes = __calc_datetimes(meta, param_str, n_timestamps=len(data))
+        print('\nReading: {}'.format(col_name))
+
+        data = numpy.genfromtxt(file_path, skip_header=n_header)
+
+        interval_s = float(meta['parameters'][col_name]['Interval(Sec)'])
+        date = meta['parameters'][col_name]['Start date']
+        time = meta['parameters'][col_name]['Start time']
+
+        # Generate summed data if propeller sampling rate not 1
+        # TODO review and make more general
+        if (col_name == 'propeller') and (interval_s < 1):
+            print('Too high sampling interval, taking sums')
+            # Sampling rate
+            fs = int(1/interval_s)
+
+            print('data before', data.max())
+            # Drop elements to make divisible by fs for summing
+            data = data[:-int(len(data)%fs)]
+
+            # Reshape to 2D with columns `fs` in length to be summed
+            data = data.reshape(fs, int(len(data)/fs))
+            data = numpy.sum(data, axis=0)
+            interval_s = 1
+
+            print('data after', data.max())
+
+        datetimes = __calc_datetimes(date, time, interval_s, len(data))
         data      = numpy.vstack((datetimes, data)).T
         df        = pandas.DataFrame(data, columns=['datetimes', col_name])
 
