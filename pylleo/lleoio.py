@@ -251,9 +251,11 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
     current_version = utils.get_githash('long')
     meta_version = meta['versions']['pylleo']
 
-    # Load or create pandas dataframe with parameters associated with tag model
-    if (current_version==meta_version):
+    # Force data overwrite if meta/data not created with same version
+    if current_version is not meta_version:
         overwrite=True
+
+    # Load or create pandas dataframe with parameters associated with tag model
     if os.path.exists(pickle_file) and not overwrite:
         data_df = pandas.read_pickle(pickle_file)
     else:
