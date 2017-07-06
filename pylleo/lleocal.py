@@ -49,7 +49,6 @@ def read_cal(cal_yaml_path):
     -------
     cal_dict: dict
         Key value pairs of calibration meta data including:
-        - code versions
         - date modified
         - experiment name
         - parameters:
@@ -60,14 +59,12 @@ def read_cal(cal_yaml_path):
     import datetime
     import os
     import warnings
+    import yamlord
 
-    from pylleo.pylleo import yamlutils
-    from pylleo.pylleo import utils
+    from . import utils
 
     def __create_cal(cal_yaml_path):
         cal_dict = OrderedDict()
-
-        cal_dict['versions'] = utils.get_versions()
 
         # Add experiment name for calibration reference
         base_path, _ = os.path.split(cal_yaml_path)
@@ -78,7 +75,7 @@ def read_cal(cal_yaml_path):
 
     # Try reading cal file, else create
     if os.path.isfile(cal_yaml_path):
-        cal_dict = yamlutils.read_yaml(cal_yaml_path)
+        cal_dict = yamlord.read_yaml(cal_yaml_path)
     else:
         cal_dict = __create_cal(cal_yaml_path)
         cal_dict['parameters'] = OrderedDict()
@@ -86,13 +83,6 @@ def read_cal(cal_yaml_path):
     fmt = "%Y-%m-%d %H:%M:%S"
     cal_dict['date_modified'] = datetime.datetime.now().strftime(fmt)
 
-    # TODO necessary?
-    # Give warning if loaded calibration file created with older version
-    current_version = utils.get_githash('long')
-    cal_version = cal_dict['versions']['pylleo']
-    if (current_version!=cal_version):
-        warnings.warn('The calibration file has been created with an '
-                      'older version of Pylleo')
     return cal_dict
 
 

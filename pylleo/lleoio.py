@@ -62,11 +62,9 @@ def read_meta(data_path, tag_model, tag_id):
     '''
     from collections import OrderedDict
     import os
+    import yamlord
 
-    # TODO correct module heirarchy to avoid this
-    # http://stackoverflow.com/a/16985066/943773
-    from pylleo.pylleo import yamlutils
-    from pylleo.pylleo import utils
+    from . import utils
 
     def __parse_meta_line(line):
         '''Return key, value pair parsed from data header line'''
@@ -111,7 +109,6 @@ def read_meta(data_path, tag_model, tag_id):
 
         # Create dictionary of meta data
         meta = OrderedDict()
-        meta['versions'] = utils.get_versions()
         meta['tag_model'] = tag_model
         meta['tag_id'] = tag_id
         meta['experiment'] = os.path.split(data_path)[1]
@@ -135,21 +132,12 @@ def read_meta(data_path, tag_model, tag_id):
 
     # Load file if exists else create
     if os.path.isfile(meta_yaml_path):
-        meta = yamlutils.read_yaml(meta_yaml_path)
-
-        # If current version the not same as meta version, create new
-        current_version = utils.get_githash('long')
-        meta_version = meta['versions']['pylleo']
-        print('current hash:', current_version)
-        print('   meta hash:' , meta_version)
-        if (current_version!=meta_version):
-            meta = __create_meta(data_path, tag_model, tag_id)
+        meta = yamlord.read_yaml(meta_yaml_path)
 
     # Else create meta dictionary and save to YAML
     else:
         meta = __create_meta(data_path, tag_model, tag_id)
-
-        yamlutils.write_yaml(meta, meta_yaml_path)
+        yamlord.write_yaml(meta, meta_yaml_path)
 
     return meta
 
@@ -180,7 +168,7 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
     import os
     import pandas
 
-    from pylleo.pylleo import utils
+    from . import utils
 
     #TODO pass params in meta directly, remove dependence on meta
 
@@ -220,7 +208,7 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
         import os
         import pandas
 
-        from pylleo.pylleo import utils
+        from . import utils
 
         # Get path of data file and associated pickle file
         file_path = get_file_path(data_path, param_str, '.TXT')
@@ -264,15 +252,9 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
 
     # Load pickle file exists and code unchanged
     pickle_file = os.path.join(data_path, 'pydata_'+meta['experiment']+'.p')
-    current_version = utils.get_githash('long')
-    meta_version = meta['versions']['pylleo']
-
-    # Force data overwrite if meta/data not created with same version
-    if current_version is not meta_version:
-        overwrite=True
 
     # Load or create pandas dataframe with parameters associated with tag model
-    if os.path.exists(pickle_file) and not overwrite:
+    if (os.path.exists(pickle_file)) and (overwrite is not True):
         data_df = pandas.read_pickle(pickle_file)
     else:
         first_col = True
@@ -283,6 +265,7 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
             else:
                 data_df = next_df
                 first_col = False
+        print('')
 
         # Covert columns to `datetime64` or `float64` types
         data_df = data_df.apply(lambda x: pandas.to_numeric(x, errors='ignore'))
