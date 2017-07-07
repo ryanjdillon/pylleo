@@ -100,8 +100,8 @@ def save_times():
     import datetime
     import os
 
-    from pylleo.pylleo import lleocal
-    from pylleo.pylleo import yamlutils
+    from pylleo import lleocal
+    from pylleo import yamlutils
 
     cal_yaml_path = os.path.join(data_path, 'cal.yaml')
 
@@ -124,8 +124,8 @@ def save_poly():
     '''Perform polyfit once bounds selected'''
     import datetime
 
-    from pylleo.pylleo import lleocal
-    from pylleo.pylleo import yamlutils
+    from pylleo import lleocal
+    from pylleo import yamlutils
 
     # TODO perhaps put check for bounds and message here
     cal_yaml_path = os.path.join(data_path, 'cal.yaml')
@@ -167,8 +167,8 @@ from bokeh.models.widgets import CheckboxButtonGroup
 from bokeh.models.widgets import Slider, Select, TextInput
 from bokeh.io import curdoc
 
-from pylleo.pylleo import lleoio
-from pylleo.pylleo import utils
+from pylleo import lleoio
+from pylleo import utils
 
 # DATA
 #------------------------------------------------------------------------------
