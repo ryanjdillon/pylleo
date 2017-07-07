@@ -1,18 +1,18 @@
-.. Little Leonardo Toolbox documentation master file, created by
-   sphinx-quickstart on Thu Oct 20 14:48:28 2016.
+.. pylleo documentation master file, created by
+   sphinx-quickstart on Fri Jul  7 16:32:35 2017.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Little Leonardo Toolbox's documentation!
-===================================================
-
-Contents:
+Welcome to pylleo's documentation!
+==================================
 
 .. toctree::
    :maxdepth: 2
+   :caption: Contents:
 
 .. automodule:: lleoio
     :members:
+
 
 
 Indices and tables
@@ -21,4 +21,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
