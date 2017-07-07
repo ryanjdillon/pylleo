@@ -1,12 +1,13 @@
-#!/usr/bin/env python
+from setuptools import setup
 
-from lleo import setup
-
-setup(name='Lleo',
-      version='1.0',
-      description='Little Leonardo Toolbox',
+setup(name='pylleo',
+      version='0.1',
+      description=('Utilities for working with Little Leonardo datalogger '
+                  'data in Python'),
       author='Ryan J. Dillon',
       author_email='ryanjamesdillon@gmail.com',
-      url='https://www.python.org/sigs/distutils-sig/',
-      packages=['lleo',],
-     )
+      url='https://github.com/ryanjdillon/pylleo',
+      download_url='https://github.com/ryanjdillon/pylleo/archive/0.1.tar.gz',
+      license='GPL-3.0+',
+      packages=['pylleo',],
+      zip_safe=False)
