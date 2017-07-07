@@ -20,4 +20,4 @@ Documentation
 The latest documentation for `pylleo` can be found
 here_
 
-.. _here: _Documentation Status
+.. _here: |Documentation Status|
