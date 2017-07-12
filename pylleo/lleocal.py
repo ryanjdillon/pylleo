@@ -80,6 +80,13 @@ def read_cal(cal_yaml_path):
         cal_dict = __create_cal(cal_yaml_path)
         cal_dict['parameters'] = OrderedDict()
 
+    # Parse data path name fields
+    exp_name = os.split(cal_yaml_path)[1]
+    cal_dict['tag_model'] = exp_name.split('_')[1]
+    cal_dict['tag_id'] = exp_name.split('_')[2]
+    cal_dict['animal'] = exp_name.split('_')[3]
+    cal_dict['notes'] = exp_name.split('_')[4]
+
     fmt = "%Y-%m-%d %H:%M:%S"
     cal_dict['date_modified'] = datetime.datetime.now().strftime(fmt)
 
@@ -143,11 +150,112 @@ def fit1d(lower, upper):
 
     return numpy.polyfit(x, y, deg=1)
 
-def apply_poly(data_df, cal_dict, param):
-    '''Apply poly fit to data array'''
+
+def calibrate_acc(data_df, cal_dict):
+
+    def apply_poly(data_df, cal_dict, param):
+        '''Apply poly fit to data array'''
+        import numpy
+
+        poly = cal_dict['parameters'][param]['poly']
+        a = numpy.polyval(poly, data_df[param])
+
+        return a.astype(float)
+
+    # Apply calibration and add as a new column to the dataframe
+    for ax in ['x', 'y', 'z']:
+        col = 'A{}_g'.format(ax)
+        col_cal = 'acceleration_{}'.format(ax)
+        data[col_cal] = apply_poly(data, cal_dict, col_name)
+
+    return data
+
+
+def create_speed_csv(cal_fname, data):
     import numpy
 
-    poly = cal_dict['parameters'][param]['poly']
-    a = numpy.polyval(poly, data_df[param])
+    # Get a mask of values which contain a sample, assuming the propeller was
+    # not sampled at as high of a frequency as the accelerometer
+    notnan = ~numpy.isnan(data['propeller'])
 
-    return a.astype(float)
+    # Read speed, start, and end times from csv
+    cal = pandas.read_csv(cal_fname)
+
+    # For each calibration in `speed_calibrations.csv`
+    for i in range(len(cal)):
+        start = cal.loc[i, 'start']
+        start = cal.loc[i, 'end']
+        dt0 = pylleo.utils.nearest(data['datetimes'][notnan], start)
+        dt1 = pylleo.utils.nearest(data['datetimes'][notnan], end)
+        cal_mask = (data['datetimes']>=dt0) & (data['datetimes']<=dt1)
+        count_avg = data['propeller'][cal_mask].mean()
+
+        cal.loc[i, 'count_average'] = count_avg
+
+    cal.to_csv(cal_fname)
+
+    return cal
+
+
+def calibrate_propeller(data_df, cal_fname, plot=False):
+
+    def speed_calibration_average(cal_fname, plot):
+        '''Cacluate the coefficients for the mean fit of calibrations
+
+        Notes
+        -----
+        `cal_fname` should contain three columns:
+        date,est_speed,count_average
+        2014-04-18,2.012,30
+        '''
+        import matplotlib.pyplot as plt
+        import numpy
+        import pandas
+
+        # Read calibration data
+        calibs = pandas.read_csv(cal_fname)
+
+        # Get unique dates to process fits for
+        # TODO make for start timestams
+        dates = calibs['datetimes'].map(lambda dt: datetime.datetime(dt.year,
+                                                                     dt.month,
+                                                                     dt.day))
+        udates = numpy.unique(dates)
+
+        # Create x data for samples and output array for y
+        n_samples = 1000
+        x = numpy.arange(n_samples)
+        fits = numpy.zeros((len(udates), n_samples), dtype=float)
+
+        # Calculate fit coefficients then store `n_samples number of samples
+        # Force intercept through zero (i.e. zero counts = zero speed)
+        # http://stackoverflow.com/a/9994484/943773
+        for i in range(len(udates)):
+            cal = calibs[dates==udates[i]]
+            xi = cal['count_average'].values[:, numpy.newaxis]
+            yi = cal['est_speed'].values
+            m, _, _, _ = numpy.linalg.lstsq(xi, yi)
+            fits[i, :] = m*x
+            # Add fit to plot if switch on
+            if plot:
+                plt.plot(x, fits[i,:], label='cal{}'.format(i))
+
+        # Calculate average of calibration samples
+        y_avg = numpy.mean(fits, axis=0)
+
+        # Add average fit to plot and show if switch on
+        if plot:
+            plt.plot(x, y_avg, label='avg')
+            plt.legend()
+            plt.show()
+
+        # Calculate fit coefficients for average samples
+        x_avg = x[:, numpy.newaxis]
+        m_avg, _, _, _ = numpy.linalg.lstsq(x_avg, y_avg)
+
+        return m_avg
+
+    m_avg = speed_calibration_average(cal_fname, plot=plot)
+    data['speed'] = m_avg*data['propeller']
+
+    return data
