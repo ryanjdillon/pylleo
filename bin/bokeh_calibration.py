@@ -11,97 +11,68 @@ to write those to a calibration YAML file (cal.yaml) in the data directory
 
 Example
 -------
-bokeh serve --show bokeh_calibration.py --args W190PD3GT 34839 1 /home/ryan/Desktop/edu/01_PhD/projects/smartmove/data/lleo_coexist/Acceleration/20150311_W190-PD3GT_34839_Skinny_Control
+bokeh serve --show bokeh_calibration.py --args  20 <data path>
 
 '''
 
-def timestamp_to_epoch(timestamps):
-    '''Convert collection of timestamps to epoch time (nanoseconds)'''
-    import pandas
-    import numpy
-
-    indexes = pandas.DatetimeIndex(timestamps)
-    epochs  = indexes.astype(numpy.int64)
-
-    return epochs
-
-
-def epoch_to_timestamp(epoch):
-    '''Convert a single epoch date to a pandas timestamp'''
-    import pandas
-
-    return pandas.to_datetime(epoch, unit='ns')
-
-
-def date_string_nano(timestamp):
-    '''Convert pandas timestamp to string format with nanosecond precision'''
-    from datetime import datetime
-
-    dt = epoch_to_timestamp(timestamp).to_datetime()
-    s = dt.strftime('%Y-%m-%d %H:%M:%S')
-    s += '.{:.5}'.format(str(timestamp)[-9:])
-
-    return s
-
-# TODO get rid of data_df from passed params
-def plot_triaxial(height, width, tools):
+def plot_triaxial(height, width, tools, title=''):
     '''Plot pandas dataframe containing an x, y, and z column'''
     import bokeh.plotting
 
-    p = bokeh.plotting.figure(plot_height=height, plot_width=width, title='',
-                              toolbar_sticky=False, tools=tools, webgl=True)
+    p = bokeh.plotting.figure(x_axis_type='datetime',
+                              plot_height=height,
+                              plot_width=width,
+                              title=title,
+                              toolbar_sticky=False,
+                              tools=tools,
+                              active_drag=BoxZoomTool(),
+                              output_backend='webgl')
+    p.yaxis.axis_label = 'Acceleration (count)'
+    p.xaxis.axis_label = 'Time (timezone as programmed)'
 
     # Static plot of accelerometry data
-    x_line = p.line(y='x', x='date', color='#1b9e77', legend='x', source=source)
-    y_line = p.line(y='y', x='date', color='#d95f02', legend='y', source=source)
-    z_line = p.line(y='z', x='date', color='#7570b3', legend='z', source=source)
-
-    lines = [x_line, y_line, z_line]
-
-    return p, lines
-
-
-def select_data(data, acc_slider):
-    '''Get data selection from plot controls'''
-
-    slider_dt = epoch_to_timestamp(acc_slider.value)
-
-    data = data[data['datetimes'] == slider_dt]
-
-    return data
+    colors = ['#1b9e77', '#d95f02', '#7570b3']
+    axes = ['x', 'y', 'z']
+    lines = [None,]*3
+    scats = [None,]*3
+    for i, (ax, c) in enumerate(zip(axes, colors)):
+        lines[i] = p.line(y=ax, x='dt', color=c, legend=False, source=source)
+        scats[i] = p.scatter(y=ax, x='dt', color=c, legend=False, size=1,
+                             source=source)
+    return p, lines, scats
 
 
-def update(attrname, old, new):
-    '''Update plots from selected data'''
-    import numpy
+def select_callback(attr, old, new):
+    '''Update TextInput start/end entries from BoxSelectTool selection'''
+    ind = sorted(new['1d']['indices'])
 
-    data_selected = select_data(data, acc_slider)
-
-    vline.set(location=acc_slider.value)
-
-    for i in range(len(lines)):
-        lines[i].visible = i in param_checkbox.active
-
-    #source.data['timestep'][0] = acc_slider.value
-
-        # The following can be used to filter/update data,
-        # but the amount of data makes this very cpu heavy
-
-        #timesteps = list(data['datetime'])
-        #x = list(data['acceleration_x']),
-        #y = list(data['acceleration_y']),
-        #z = list(data['acceleration_z']),
+    if new is None:
+        start_input.value = str(source.data.ind[0])
+        end_input.value = str(source.data.ind[-1])
+    else:
+        start_input.value = str(source.data['ind'][ind[0]])
+        end_input.value = str(source.data['ind'][ind[-1]])
 
     return None
 
 
-def save_times():
+def checkbox_callback(attr, old, new):
+    '''Update visible data from parameters selectin in the CheckboxSelect'''
+    import numpy
+
+    for i in range(len(lines)):
+        lines[i].visible = i in param_checkbox.active
+        scats[i].visible = i in param_checkbox.active
+
+    return None
+
+
+def save_indices():
     '''Save index from bokeh textinput'''
     import datetime
     import os
-
-    from pylleo import lleocal
-    from pylleo import yamlutils
+    import pylleo
+    import yamlord
 
     cal_yaml_path = os.path.join(data_path, 'cal.yaml')
 
@@ -110,12 +81,20 @@ def save_times():
     start = int(start_input.value)
     end   = int(end_input.value)
 
-    t_now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(t_now, 'UPDATE CAL TIMES: {}, {}'.format(param, bound))
+    msg = '''
+          Updated calibration times for:<br>
+          <b>{}/{}</b>
+          <br>
+          <br>
+          star index: {}<br>
+          end index:  {}<br>
+          '''.format(param, bound, start, end)
+    output_window.text = output_template.format(msg)
 
-    cal_dict = lleocal.read_cal(cal_yaml_path)
-    cal_dict = lleocal.update(data, cal_dict, param, bound, start, end)
-    yamlutils.write_yaml(cal_dict, cal_yaml_path)
+    cal_dict = pylleo.lleocal.read_cal(cal_yaml_path)
+    # Generalize for Class-ifying
+    cal_dict = pylleo.lleocal.update(data, cal_dict, param, bound, start, end)
+    yamlord.write_yaml(cal_dict, cal_yaml_path)
 
     return None
 
@@ -123,153 +102,194 @@ def save_times():
 def save_poly():
     '''Perform polyfit once bounds selected'''
     import datetime
+    import pylleo
+    import yamlord
+    import itertools
 
-    from pylleo import lleocal
-    from pylleo import yamlutils
+    def missing_parameter(p):
+        msg = '''
+              <b>{}</b> was not found in the calibration dictionary.
 
-    # TODO perhaps put check for bounds and message here
-    cal_yaml_path = os.path.join(data_path, 'cal.yaml')
-    cal_dict = lleocal.read_cal(cal_yaml_path)
+              Process that parameter and then try saving the polyfit again.
+              '''.format(p)
+        output_window.text = output_template.format(msg)
+
+    def indices_misordered(start, end, p, b):
+        msg = '''
+              The start index ({}) comes after the end index ({}).
+
+              Please set new start/end indexes for <b>{}/{}</b>
+              '''.format(start, end, p, b)
+        output_window.text = output_template.format(msg)
+
+    cal_fname = 'cal.yaml'
+    cal_yaml_path = os.path.join(data_path, cal_fname)
+    cal_dict = pylleo.lleocal.read_cal(cal_yaml_path)
+
+    # Check that all necessary calibration parameters are present first
+    params_present = True
+    for p, b, idx in itertools.product(params_data, bounds, ['start', 'end']):
+        if p not in cal_dict['parameters']:
+            params_present = False
+            missing_parameter(p)
+            break
+        elif b not in cal_dict['parameters'][p]:
+            params_present = False
+            missing_parameter('{}/{}'.format(p, b))
+            break
+
+        start = cal_dict['parameters'][p][b]['start']
+        end = cal_dict['parameters'][p][b]['end']
+        if start > end:
+            params_present = False
+            indices_misordered(start, end, p, b)
+            break
 
     param = (param_select.value).lower().replace('-','_')
 
-    try:
-        t_now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(t_now, 'SAVE POLY: {}'.format(param))
+    if params_present:
+        try:
+            msg = '''
+                  Saved polyfit for <b>{}</b> to <b>{}</b>.
+                  '''.format(param, cal_fname)
+            output_window.text = output_template.format(msg)
 
-        lower, upper = lleocal.get_cal_data(data, cal_dict, param)
-        poly = list(lleocal.fit1d(lower, upper))
-        poly = [float(str(i)) for i in poly]
+            lower, upper = pylleo.lleocal.get_cal_data(data, cal_dict, param)
+            poly = list(pylleo.lleocal.fit1d(lower, upper))
+            poly = [float(str(i)) for i in poly]
 
-        cal_dict['parameters'][param]['poly'] = poly
-        yamlutils.write_yaml(cal_dict, cal_yaml_path)
-    except:
-        print('Problem saving polyfit')
+            cal_dict['parameters'][param]['poly'] = poly
+            yamlord.write_yaml(cal_dict, cal_yaml_path)
+        except Exception as e:
+            msg = 'Problem saving polyfit: {}'.format(e)
+            output_window.text = output_template.format(msg)
 
     return None
 
 
-# save state to calibration field
-import os
+def load_data(data_path):
+    from bokeh.models import ColumnDataSource
+    import pylleo
+
+    params_tag = pylleo.utils.parse_tag_params(os.path.split(data_path)[1])
+
+    # Load the Little Leonardo tag data
+    meta = pylleo.lleoio.read_meta(data_path, params_tag['tag_model'],
+                                   params_tag['tag_id'])
+    data = pylleo.lleoio.read_data(meta, data_path, sample_f=sample_f)
+
+    # Get and curate the parameter names of the loaded dataframe
+    params_data = pylleo.lleoio.load_tag_params(params_tag['tag_model'])
+    params_data = [pylleo.utils.posix_string(p) for p in params_data]
+    params_data = [p for p in params_data if p.startswith('acc')]
+
+    # Create Column Data Source that will be used by the plot
+    dt_fmt = [dt.strftime('%H:%M') for dt in data['datetimes']]
+    source = ColumnDataSource(data = dict(x = list(data['acceleration_x']),
+                              y = list(data['acceleration_y']),
+                              z = list(data['acceleration_z']),
+                              ind = list(data.index),
+                              dt = list(data['datetimes']),
+                              dt_fmt = dt_fmt
+                              ))
+
+    return source, params_tag, params_data
+
 import numpy
+import os
 import sys
 import subprocess
 
-#from bokeh.layouts import layout
-from bokeh.layouts import widgetbox
-from bokeh.models import WidgetBox, HBox
-from bokeh.models import Span, Label
+from bokeh.layouts import widgetbox, column, row
 from bokeh.models import PanTool, WheelZoomTool, BoxZoomTool, HoverTool
-from bokeh.models import ColumnDataSource
-#from bokeh.models.widgets import Tabs, Panel
-from bokeh.models.widgets import Button
-from bokeh.models.widgets import CheckboxButtonGroup
-from bokeh.models.widgets import Slider, Select, TextInput
+from bokeh.models import BoxSelectTool
+from bokeh.models.widgets import Div, PreText, CheckboxButtonGroup
+from bokeh.models.widgets import Select, TextInput, Button
 from bokeh.io import curdoc
-
-from pylleo import lleoio
-from pylleo import utils
 
 # DATA
 #------------------------------------------------------------------------------
 
-# Handle commanline arguments
+# Handle commandline arguments
 args = sys.argv
 
 if len(args) <= 1:
     print('Usage: bokeh serve --show bokeh_calibration.py '
-          '--args <tag_model> <tag_id> <sample_f> <data_path>')
+          '--args <sample_f> <data_path>')
     sys.exit()
 
-tag_model = args[1]
-tag_id    = args[2]
-sample_f  = int(args[3])
-data_path = args[4]
+sample_f  = int(args[1])
+data_path = args[2]
 
-# TODO handle lleo mag, and other tags...
-meta = lleoio.read_meta(data_path, tag_model, tag_id)
-data = lleoio.read_data(meta, data_path, sample_f=sample_f)
+source, params_tag, params_data =  load_data(data_path)
 
-param_names = lleoio.load_tag_params(tag_model)
-param_names = [utils.posix_string(p) for p in param_names]
-
-# Timestamps in epoch time and strings to nanosecond
-dates = timestamp_to_epoch(data['datetimes'])
-#dates_str = [date_string_nano(d) for d in dates]
-
-# Create Column Data Source that will be used by the plot
-source = ColumnDataSource(data=dict(x    = list(data['acceleration_x'].values),
-                                    y    = list(data['acceleration_y'].values),
-                                    z    = list(data['acceleration_z'].values),
-                                    date = list(dates),))
 # Input
 #------------------------------------------------------------------------------
 
-# TODO use callback with BoxSelectTool to get indices rather than TextInput
-# http://stackoverflow.com/a/34175864/943773
-
-# Create Input controls
-t_min = min(dates)
-t_max = max(dates)
-acc_slider = Slider(title='Timestep', start=t_min, end=t_max, value=t_min, step=1)
-
-# TODO generalize this for plotting the lines too
+# Select which axes to select calibration start/end points
+param_checkbox_pre = PreText(text='Axes to display')
 param_checkbox = CheckboxButtonGroup(labels=["x", "y", "z"], active=[0, 1, 2])
 
-param_select = Select(title="Calibrate Param:", value=param_names[0],
-                      options=param_names)
+# Select with parameter to collect start/end times for and perform a data fit
+param_select = Select(title="Parameter to calibrate:", value=params_data[0],
+                      options=params_data)
 
-bound_select = Select(title="Bound:", value='lower',
-                      options=['lower', 'upper'])
+# Select upper or lower acceleration bound to calibrate
+bounds = ['lower', 'upper']
+bound_select = Select(title="Bound (lower = -g; upper = +g):", value='lower',
+                      options=bounds)
 
 # User input start end times, save to cal
-start_input = TextInput(value='0', title='start:')
-end_input = TextInput(value='0', title='end:')
+start_input = TextInput(value='0', title='Start index:')
+end_input = TextInput(value='0', title='End index:')
 
-button_save = Button(label='Save Times', button_type='success')
-button_save.on_click(save_times)
+# Save the start end times selcted with BoxSelectTool (or manually entered)
+button_save = Button(label='Save Index Values', button_type='success')
+button_save.on_click(save_indices)
 
+# Perform a polyfit on the data points occuring between the start/end points
+# for the parameter and bound selected from the dropdown menus
 button_poly = Button(label='Perform Polyfit', button_type='success')
 button_poly.on_click(save_poly)
 
-controls = [acc_slider, param_checkbox, param_select, bound_select,
-            start_input, end_input, button_save, button_poly]
-
+# Print text output from callback/button routines in styled div container
+output_template = ('<div style="display:inline-block; width:300px; '
+                   'height:150px; padding: 10px; background-color:#f2f2f2; '
+                   'border-radius:10px; overflow:scroll">{}</div>')
+output_window = Div(text=output_template.format('Status updates display here'))
 
 # Plotting
 #------------------------------------------------------------------------------
-
-# Axis labels
-axis_map = {'Time': 't',
-            'Acceleration': 'acc',}
-
-x_axis = Select(title='X Axis', options=sorted(axis_map.keys()), value='Time')
-y_axis = Select(title='Y Axis', options=sorted(axis_map.keys()), value='Acceleration')
-
-hover = HoverTool(tooltips=[('index', '$index'),
+# Format data to display when HoverTool activated
+hover = HoverTool(tooltips=[('index', '@ind'),
                             ('acc', '$y'),
-                            ('time', '@date'),
+                            ('time', '@dt_fmt'),
                             ])
 
-#'pan,wheel_zoom,box_zoom,reset,hover'
-tools = [PanTool(), WheelZoomTool(), BoxZoomTool(), hover]
-p, lines = plot_triaxial(height=300, width=800, tools=tools)
+# Define plots tools and create plot object and glyph objects
+tools = [PanTool(), WheelZoomTool(), BoxSelectTool(), BoxZoomTool(), hover]
+title = 'Calibrating {}'.format(params_tag['experiment'])
+p, lines, scats = plot_triaxial(height=300, width=800, tools=tools, title=title)
+p.select(BoxSelectTool).select_every_mousemove = False
 
-# Add line for current video time
-vline = Span(location=0, dimension='height', line_color='red', line_width=3)
-p.renderers.extend([vline,])
+# Assign callback -  Update plot when acc axes selected/deselected
+param_checkbox.on_change('active', checkbox_callback)
+
+# Assign callback -  Update start/end input text boxes with BoxSelectTool
+for scat in scats:
+    scat.data_source.on_change('selected', select_callback)
 
 
 # Rendering
 #------------------------------------------------------------------------------
+# Bundle controls for inserting into the layout
+controls = (param_checkbox_pre, param_checkbox, param_select, bound_select,
+            start_input, end_input, button_save, button_poly)
 
-for control in controls:
-    control.on_change('value', update)
+# Create layout
+vbuffer = row(height=80)
+inputs = row(widgetbox(*controls), width=350)
+layout = column(p, row(inputs, column(output_window)),
+                width=1100)
 
-inputs = HBox(widgetbox(*controls), width=800)
-
-# initial load of the data
-update(None, None, None)
-
-#TODO update to widget, hbox depreciated
-curdoc().add_root(HBox(p, inputs, width=1100))
+curdoc().add_root(layout)
