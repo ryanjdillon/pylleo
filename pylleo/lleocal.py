@@ -4,7 +4,7 @@ def get_cal_data(data_df, cal_dict, param):
 
     Args
     ----
-    data_df: pd.dataframe
+    data_df: pandas.DataFrame
         Pandas dataframe with lleo data
     cal_dict: dict
         Calibration dictionary
@@ -44,16 +44,12 @@ def read_cal(cal_yaml_path):
     Args
     ----
     cal_yaml_path: str
+        Path to calibration YAML file
 
     Returns
     -------
     cal_dict: dict
-        Key value pairs of calibration meta data including:
-        - date modified
-        - experiment name
-        - parameters:
-            * start/stop indices for calibration points
-            * polyfit coefficients for fitting data to calibration curve
+        Key value pairs of calibration meta data
     '''
     from collections import OrderedDict
     import datetime
@@ -68,8 +64,8 @@ def read_cal(cal_yaml_path):
 
         # Add experiment name for calibration reference
         base_path, _ = os.path.split(cal_yaml_path)
-        _, experiment = os.path.split(base_path)
-        cal_dict['experiment'] = experiment
+        _, exp_name = os.path.split(base_path)
+        cal_dict['experiment'] = exp_name
 
         return cal_dict
 
@@ -80,12 +76,8 @@ def read_cal(cal_yaml_path):
         cal_dict = __create_cal(cal_yaml_path)
         cal_dict['parameters'] = OrderedDict()
 
-    # Parse data path name fields
-    exp_name = os.split(cal_yaml_path)[1]
-    cal_dict['tag_model'] = exp_name.split('_')[1]
-    cal_dict['tag_id'] = exp_name.split('_')[2]
-    cal_dict['animal'] = exp_name.split('_')[3]
-    cal_dict['notes'] = exp_name.split('_')[4]
+    for key, val in utils.parse_tag_params(cal_dict['experiment']).items():
+        cal_dict[key] = val
 
     fmt = "%Y-%m-%d %H:%M:%S"
     cal_dict['date_modified'] = datetime.datetime.now().strftime(fmt)
