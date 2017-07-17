@@ -11,26 +11,27 @@ to write those to a calibration YAML file (cal.yaml) in the data directory
 
 Example
 -------
-bokeh serve --show bokeh_calibration.py --args  20 <data path>
+bokeh serve --show bokeh_calibration.py
 
 '''
 
-def plot_triaxial(height, width, tools, title=''):
+def plot_triaxial(height, width, tools):
     '''Plot pandas dataframe containing an x, y, and z column'''
     import bokeh.plotting
 
     p = bokeh.plotting.figure(x_axis_type='datetime',
                               plot_height=height,
                               plot_width=width,
-                              title=title,
+                              title=' ',
                               toolbar_sticky=False,
                               tools=tools,
                               active_drag=BoxZoomTool(),
                               output_backend='webgl')
+
     p.yaxis.axis_label = 'Acceleration (count)'
     p.xaxis.axis_label = 'Time (timezone as programmed)'
 
-    # Static plot of accelerometry data
+    # Plot accelerometry data as lines and scatter (for BoxSelectTool)
     colors = ['#1b9e77', '#d95f02', '#7570b3']
     axes = ['x', 'y', 'z']
     lines = [None,]*3
@@ -42,21 +43,132 @@ def plot_triaxial(height, width, tools, title=''):
     return p, lines, scats
 
 
-def select_callback(attr, old, new):
-    '''Update TextInput start/end entries from BoxSelectTool selection'''
-    ind = sorted(new['1d']['indices'])
+def load_data(data_path):
+    '''Load data, directory parameters, and accelerometer parameter names
 
-    if new is None:
-        start_input.value = str(source.data.ind[0])
-        end_input.value = str(source.data.ind[-1])
+    Args
+    ----
+    data_path: str
+        Path to the data directory
+
+    Returns
+    -------
+    data: pandas.DataFrame
+        Experiment data
+    params_tag: dict
+        A dictionary of parameters parsed from the directory name
+    params_data: list
+        A list of the accelerometer parameter names
+    '''
+    import os
+    import pylleo
+
+    params_tag = pylleo.utils.parse_tag_params(os.path.split(data_path)[1])
+
+    # Load the Little Leonardo tag data
+    meta = pylleo.lleoio.read_meta(data_path, params_tag['tag_model'],
+                                   params_tag['tag_id'])
+    data = pylleo.lleoio.read_data(meta, data_path, sample_f=sample_f)
+
+    # Get and curate the parameter names of the loaded dataframe
+    params_data = pylleo.lleoio.load_tag_params(params_tag['tag_model'])
+    params_data = [pylleo.utils.posix_string(p) for p in params_data]
+    params_data = [p for p in params_data if p.startswith('acc')]
+
+    return data, params_tag, params_data
+
+
+def callback_parent(attr, old, new):
+    '''Update data directories drop down with new parent directory'''
+    import os
+
+    # Verify new parent path exists and update `datadirs_select` widget
+    if os.path.exists(new):
+        # Create sorted list of data directories, ignore files
+        joinisdir = lambda parent, d: os.path.isdir(os.path.join(parent, d))
+        options = sorted([d for d in os.listdir(new) if joinisdir(new, d)])
+
+        # Update dropdown list of available data directories and select first
+        datadirs_select.options = options
+        datadirs_select.value = options[0]
+
     else:
-        start_input.value = str(source.data['ind'][ind[0]])
-        end_input.value = str(source.data['ind'][ind[-1]])
+        msg = '''
+              The parent path `{}` does not exist.
+
+              Check that you have entered the absolute path.
+              '''.format(new.value)
+        output_window.text = output_template.format(msg)
 
     return None
 
 
-def checkbox_callback(attr, old, new):
+def callback_datadirs(attr, old, new):
+    '''Update source and controls with data loaded from selected directory'''
+    import os
+
+    try:
+        # Load data from new data directory
+        data_path = os.path.join(parent_input.value, new)
+        data, params_tag, params_data =  load_data(data_path)
+
+        # Make title with new data directory
+        p.title.text = 'Calibrating {}'.format(params_tag['experiment'])
+
+        # Update `source` data fields from dataframe
+        dt_str = [dt.strftime(dt_fmt) for dt in data['datetimes']]
+        source.data = dict(x      = list(data['acceleration_x']),
+                           y      = list(data['acceleration_y']),
+                           z      = list(data['acceleration_z']),
+                           ind    = list(data.index),
+                           dt     = list(data['datetimes']),
+                           dt_str = dt_str)
+
+        # Update values for control widgets
+        param_checkbox.active = [0, 1, 2]
+        param_select.options = params_data
+        param_select.value = params_data[0]
+        bounds = ['lower', 'upper']
+        bounds_select.options = bounds
+        bounds_select.value = bounds[0]
+        start_input.value = str(data.index[0])
+        end_input.value = str(data.index[-1])
+    except Exception as e:
+        msg = '''
+              Problem loading data directory `{}`.
+
+              Please check that data exists in that directory.
+
+              Details:
+              {}
+              '''.format(new, e)
+        output_window.text = output_template.format(msg)
+
+
+    return None
+
+
+def callback_box_select(attr, old, new):
+    '''Update TextInput start/end entries from BoxSelectTool selection'''
+
+    # Get indices of selection
+    ind = sorted(new['1d']['indices'])
+
+    if new is None:
+        start_input.value = '0'
+        end_input.value = '0'
+    else:
+        start_input.value = str(source.data['ind'][ind[0]])
+        end_input.value = str(source.data['ind'][ind[-1]])
+        msg = '''
+              New start and end index values set.
+              '''
+        output_window.text = output_template.format(msg)
+
+    return None
+
+
+def callback_checkbox(attr, old, new):
     '''Update visible data from parameters selectin in the CheckboxSelect'''
     import numpy
 
@@ -67,39 +179,47 @@ def checkbox_callback(attr, old, new):
     return None
 
 
-def save_indices():
+def callback_save_indices():
     '''Save index from bokeh textinput'''
     import datetime
     import os
     import pylleo
     import yamlord
 
-    cal_yaml_path = os.path.join(data_path, 'cal.yaml')
+    if datadirs_select.value != 'None':
+        data_path = os.path.join(parent_input.value, datadirs_select.value)
+        cal_yaml_path = os.path.join(data_path, 'cal.yaml')
 
-    param = (param_select.value).lower().replace('-','_')
-    bound = bound_select.value
-    start = int(start_input.value)
-    end   = int(end_input.value)
+        param = (param_select.value).lower().replace('-','_')
+        bound = bounds_select.value
+        start = int(start_input.value)
+        end   = int(end_input.value)
 
-    msg = '''
-          Updated calibration times for:<br>
-          <b>{}/{}</b>
-          <br>
-          <br>
-          star index: {}<br>
-          end index:  {}<br>
-          '''.format(param, bound, start, end)
-    output_window.text = output_template.format(msg)
+        msg = '''
+              Updated calibration times for:<br>
+              <b>{}/{}</b>
+              <br>
+              <br>
+              star index: {}<br>
+              end index:  {}<br>
+              '''.format(param, bound, start, end)
+        output_window.text = output_template.format(msg)
 
-    cal_dict = pylleo.lleocal.read_cal(cal_yaml_path)
-    # Generalize for Class-ifying
-    cal_dict = pylleo.lleocal.update(data, cal_dict, param, bound, start, end)
-    yamlord.write_yaml(cal_dict, cal_yaml_path)
+        cal_dict = pylleo.lleocal.read_cal(cal_yaml_path)
+        # Generalize for Class-ifying
+        cal_dict = pylleo.lleocal.update(data, cal_dict, param, bound, start, end)
+        yamlord.write_yaml(cal_dict, cal_yaml_path)
+    else:
+        msg = '''
+              You must first load data and select indices for calibration
+              regions before you can save the indices to `cal.yaml`
+              '''
+        output_window.text = output_template.format(msg)
 
     return None
 
 
-def save_poly():
+def callback_save_poly():
     '''Perform polyfit once bounds selected'''
     import datetime
     import pylleo
@@ -122,85 +242,67 @@ def save_poly():
               '''.format(start, end, p, b)
         output_window.text = output_template.format(msg)
 
-    cal_fname = 'cal.yaml'
-    cal_yaml_path = os.path.join(data_path, cal_fname)
-    cal_dict = pylleo.lleocal.read_cal(cal_yaml_path)
+    if datadirs_select.value != 'None':
+        data_path = os.path.join(parent_input.value, datadirs_select.value)
+        cal_yaml_path = os.path.join(data_path, cal_fname)
+        cal_dict = pylleo.lleocal.read_cal(cal_yaml_path)
 
-    # Check that all necessary calibration parameters are present first
-    params_present = True
-    for p, b, idx in itertools.product(params_data, bounds, ['start', 'end']):
-        if p not in cal_dict['parameters']:
-            params_present = False
-            missing_parameter(p)
-            break
-        elif b not in cal_dict['parameters'][p]:
-            params_present = False
-            missing_parameter('{}/{}'.format(p, b))
-            break
+        # Check that all necessary calibration parameters are present first
+        params_present = True
+        bounds = bounds_select.options
+        for p, b, idx in itertools.product(params_data, bounds, ['start', 'end']):
+            if p not in cal_dict['parameters']:
+                params_present = False
+                missing_parameter(p)
+                break
+            elif b not in cal_dict['parameters'][p]:
+                params_present = False
+                missing_parameter('{}/{}'.format(p, b))
+                break
 
-        start = cal_dict['parameters'][p][b]['start']
-        end = cal_dict['parameters'][p][b]['end']
-        if start > end:
-            params_present = False
-            indices_misordered(start, end, p, b)
-            break
+            start = cal_dict['parameters'][p][b]['start']
+            end = cal_dict['parameters'][p][b]['end']
+            if start > end:
+                params_present = False
+                indices_misordered(start, end, p, b)
+                break
 
-    param = (param_select.value).lower().replace('-','_')
+        param = (param_select.value).lower().replace('-','_')
 
-    if params_present:
-        try:
-            msg = '''
-                  Saved polyfit for <b>{}</b> to <b>{}</b>.
-                  '''.format(param, cal_fname)
-            output_window.text = output_template.format(msg)
+        if params_present:
+            try:
+                msg = '''
+                      Saved polyfit for <b>{}</b> to <b>{}</b>.
+                      '''.format(param, cal_fname)
+                output_window.text = output_template.format(msg)
 
-            lower, upper = pylleo.lleocal.get_cal_data(data, cal_dict, param)
-            poly = list(pylleo.lleocal.fit1d(lower, upper))
-            poly = [float(str(i)) for i in poly]
+                lower, upper = pylleo.lleocal.get_cal_data(data, cal_dict, param)
+                poly = list(pylleo.lleocal.fit1d(lower, upper))
+                poly = [float(str(i)) for i in poly]
 
-            cal_dict['parameters'][param]['poly'] = poly
-            yamlord.write_yaml(cal_dict, cal_yaml_path)
-        except Exception as e:
-            msg = 'Problem saving polyfit: {}'.format(e)
-            output_window.text = output_template.format(msg)
+                cal_dict['parameters'][param]['poly'] = poly
+                yamlord.write_yaml(cal_dict, cal_yaml_path)
+            except Exception as e:
+                msg = 'Problem saving polyfit: {}'.format(e)
+                output_window.text = output_template.format(msg)
+    else:
+        msg = '''
+              You must first load data and select indices for calibration
+              regions before you can save to polyfit to `cal.yaml`
+              '''
+        output_window.text = output_template.format(msg)
 
     return None
 
 
-def load_data(data_path):
-    from bokeh.models import ColumnDataSource
-    import pylleo
-
-    params_tag = pylleo.utils.parse_tag_params(os.path.split(data_path)[1])
-
-    # Load the Little Leonardo tag data
-    meta = pylleo.lleoio.read_meta(data_path, params_tag['tag_model'],
-                                   params_tag['tag_id'])
-    data = pylleo.lleoio.read_data(meta, data_path, sample_f=sample_f)
-
-    # Get and curate the parameter names of the loaded dataframe
-    params_data = pylleo.lleoio.load_tag_params(params_tag['tag_model'])
-    params_data = [pylleo.utils.posix_string(p) for p in params_data]
-    params_data = [p for p in params_data if p.startswith('acc')]
-
-    # Create Column Data Source that will be used by the plot
-    dt_fmt = [dt.strftime('%H:%M') for dt in data['datetimes']]
-    source = ColumnDataSource(data = dict(x = list(data['acceleration_x']),
-                              y = list(data['acceleration_y']),
-                              z = list(data['acceleration_z']),
-                              ind = list(data.index),
-                              dt = list(data['datetimes']),
-                              dt_fmt = dt_fmt
-                              ))
-
-    return source, params_tag, params_data
-
+import datetime
 import numpy
 import os
 import sys
 import subprocess
 
 from bokeh.layouts import widgetbox, column, row
+from bokeh.models import ColumnDataSource
 from bokeh.models import PanTool, WheelZoomTool, BoxZoomTool, HoverTool
 from bokeh.models import BoxSelectTool
 from bokeh.models.widgets import Div, PreText, CheckboxButtonGroup
@@ -209,35 +311,54 @@ from bokeh.io import curdoc
 
 # DATA
 #------------------------------------------------------------------------------
+cal_fname = 'cal.yaml'
+sample_f  = 30
+dt_fmt = '%H:%M'
+data = None
 
-# Handle commandline arguments
-args = sys.argv
-
-if len(args) <= 1:
-    print('Usage: bokeh serve --show bokeh_calibration.py '
-          '--args <sample_f> <data_path>')
-    sys.exit()
-
-sample_f  = int(args[1])
-data_path = args[2]
-
-source, params_tag, params_data =  load_data(data_path)
+# Create Column Data Source that will be used by the plot
+# use 6hr span to avoid straing xaxis labels
+t0 = datetime.datetime.now()
+t1 = t0 + datetime.timedelta(hours=6)
+source = ColumnDataSource(data = dict(x = [0, 0],
+                                      y = [0, 0],
+                                      z = [0, 0],
+                                      ind = [0, 0],
+                                      dt = [t0, t1],
+                                      dt_str = [t0.strftime(dt_fmt),
+                                                t1.strftime(dt_fmt)]
+                                      ))
 
 # Input
 #------------------------------------------------------------------------------
+# Path for entering the parent directory of data directories
+title = 'Parent directory:'
+css = ['widthfix']
+parent_input = TextInput(placeholder=' '*100, title=title, css_classes=css)
+parent_input.on_change('value', callback_parent)
+
+# Dropdown list of data directories in parent to load data from
+data_dirs = ['None']
+title = 'Data directories:'
+datadirs_select = Select(title=title, value=data_dirs[0], options=data_dirs)
+datadirs_select.on_change('value', callback_datadirs)
 
 # Select which axes to select calibration start/end points
 param_checkbox_pre = PreText(text='Axes to display')
-param_checkbox = CheckboxButtonGroup(labels=["x", "y", "z"], active=[0, 1, 2])
+labels_ax = ['x', 'y', 'z']
+active_ax = []
+param_checkbox = CheckboxButtonGroup(labels=labels_ax, active=active_ax)
+param_checkbox.on_change('active', callback_checkbox)
 
 # Select with parameter to collect start/end times for and perform a data fit
-param_select = Select(title="Parameter to calibrate:", value=params_data[0],
-                      options=params_data)
+params_data = ['None']
+title = 'Parameter to calibrate:'
+param_select = Select(title=title, value=params_data[0], options=params_data)
 
 # Select upper or lower acceleration bound to calibrate
-bounds = ['lower', 'upper']
-bound_select = Select(title="Bound (lower = -g; upper = +g):", value='lower',
-                      options=bounds)
+bounds = ['None']
+title = 'Bound (lower = -g; upper = +g):'
+bounds_select = Select(title=title, value=bounds[0], options=bounds)
 
 # User input start end times, save to cal
 start_input = TextInput(value='0', title='Start index:')
@@ -245,12 +366,12 @@ end_input = TextInput(value='0', title='End index:')
 
 # Save the start end times selcted with BoxSelectTool (or manually entered)
 button_save = Button(label='Save Index Values', button_type='success')
-button_save.on_click(save_indices)
+button_save.on_click(callback_save_indices)
 
 # Perform a polyfit on the data points occuring between the start/end points
 # for the parameter and bound selected from the dropdown menus
 button_poly = Button(label='Perform Polyfit', button_type='success')
-button_poly.on_click(save_poly)
+button_poly.on_click(callback_save_poly)
 
 # Print text output from callback/button routines in styled div container
 output_template = ('<div style="display:inline-block; width:300px; '
@@ -258,38 +379,43 @@ output_template = ('<div style="display:inline-block; width:300px; '
                    'border-radius:10px; overflow:scroll">{}</div>')
 output_window = Div(text=output_template.format('Status updates display here'))
 
+
 # Plotting
 #------------------------------------------------------------------------------
 # Format data to display when HoverTool activated
 hover = HoverTool(tooltips=[('index', '@ind'),
                             ('acc', '$y'),
-                            ('time', '@dt_fmt'),
+                            ('time', '@dt_str'),
                             ])
 
 # Define plots tools and create plot object and glyph objects
 tools = [PanTool(), WheelZoomTool(), BoxSelectTool(), BoxZoomTool(), hover]
-title = 'Calibrating {}'.format(params_tag['experiment'])
-p, lines, scats = plot_triaxial(height=300, width=800, tools=tools, title=title)
+p, lines, scats = plot_triaxial(height=300, width=800, tools=tools)
 p.select(BoxSelectTool).select_every_mousemove = False
 
-# Assign callback -  Update plot when acc axes selected/deselected
-param_checkbox.on_change('active', checkbox_callback)
+# Force run of callback to make dummy line not visible at init
+callback_checkbox('active', active_ax, active_ax)
 
-# Assign callback -  Update start/end input text boxes with BoxSelectTool
+# Update start/end input text boxes with BoxSelectTool
 for scat in scats:
-    scat.data_source.on_change('selected', select_callback)
+    scat.data_source.on_change('selected', callback_box_select)
 
 
 # Rendering
 #------------------------------------------------------------------------------
 # Bundle controls for inserting into the layout
-controls = (param_checkbox_pre, param_checkbox, param_select, bound_select,
+controls = (param_checkbox_pre, param_checkbox, param_select, bounds_select,
             start_input, end_input, button_save, button_poly)
 
 # Create layout
-vbuffer = row(height=80)
-inputs = row(widgetbox(*controls), width=350)
-layout = column(p, row(inputs, column(output_window)),
-                width=1100)
+row1 = row(column(widgetbox(parent_input, datadirs_select)))
+col1 = column(widgetbox(*controls), width=350)
+# See `output_template for css sizing of window
+vbuffer = row(height=35)
+col2 = column(vbuffer, widgetbox(output_window))
+row2 = row(col1, col2)
 
+layout = column(p, row1, row2, width=1100)
+
+# Generate document from layout
 curdoc().add_root(layout)

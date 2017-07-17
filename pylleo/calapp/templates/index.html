@@ -1,0 +1,20 @@
+<!-- originating css file location
+     site-packages/bokeh/server/static/css/bokeh-widgets.min.css -->
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>{{ title if title else "Bokeh Plot" }}</title>
+        <style>
+        .bk-root .bk-widget-form-group.widthfix input[type="text"] {
+            width: 730px;
+        }
+        </style>
+        {{ bokeh_css }}
+        {{ bokeh_js }}
+    </head>
+    <body>
+        {{ plot_div|indent(8) }}
+        {{ plot_script|indent(8) }}
+    </body>
+</html>
