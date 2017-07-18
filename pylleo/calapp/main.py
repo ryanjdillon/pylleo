@@ -63,7 +63,8 @@ def load_data(data_path):
     import os
     import pylleo
 
-    params_tag = pylleo.utils.parse_tag_params(os.path.split(data_path)[1])
+    exp_name = os.path.split(data_path)[1]
+    params_tag = pylleo.utils.parse_experiment_params(exp_name)
 
     # Load the Little Leonardo tag data
     meta = pylleo.lleoio.read_meta(data_path, params_tag['tag_model'],
@@ -71,7 +72,7 @@ def load_data(data_path):
     data = pylleo.lleoio.read_data(meta, data_path, sample_f=sample_f)
 
     # Get and curate the parameter names of the loaded dataframe
-    params_data = pylleo.lleoio.load_tag_params(params_tag['tag_model'])
+    params_data = pylleo.utils.get_tag_params(params_tag['tag_model'])
     params_data = [pylleo.utils.posix_string(p) for p in params_data]
     params_data = [p for p in params_data if p.startswith('acc')]
 
@@ -91,6 +92,7 @@ def callback_parent(attr, old, new):
         # Update dropdown list of available data directories and select first
         datadirs_select.options = options
         datadirs_select.value = options[0]
+        callback_datadirs('value', options[0], options[0])
 
     else:
         msg = '''
@@ -107,10 +109,12 @@ def callback_datadirs(attr, old, new):
     '''Update source and controls with data loaded from selected directory'''
     import os
 
+    global data
+
     try:
         # Load data from new data directory
         data_path = os.path.join(parent_input.value, new)
-        data, params_tag, params_data =  load_data(data_path)
+        data, params_tag, params_data = load_data(data_path)
 
         # Make title with new data directory
         p.title.text = 'Calibrating {}'.format(params_tag['experiment'])
@@ -128,9 +132,9 @@ def callback_datadirs(attr, old, new):
         param_checkbox.active = [0, 1, 2]
         param_select.options = params_data
         param_select.value = params_data[0]
-        bounds = ['lower', 'upper']
-        bounds_select.options = bounds
-        bounds_select.value = bounds[0]
+        regions = ['lower', 'upper']
+        region_select.options = regions
+        region_select.value = regions[0]
         start_input.value = str(data.index[0])
         end_input.value = str(data.index[-1])
     except Exception as e:
@@ -191,7 +195,7 @@ def callback_save_indices():
         cal_yaml_path = os.path.join(data_path, 'cal.yaml')
 
         param = (param_select.value).lower().replace('-','_')
-        bound = bounds_select.value
+        region = region_select.value
         start = int(start_input.value)
         end   = int(end_input.value)
 
@@ -202,12 +206,12 @@ def callback_save_indices():
               <br>
               star index: {}<br>
               end index:  {}<br>
-              '''.format(param, bound, start, end)
+              '''.format(param, region, start, end)
         output_window.text = output_template.format(msg)
 
         cal_dict = pylleo.lleocal.read_cal(cal_yaml_path)
         # Generalize for Class-ifying
-        cal_dict = pylleo.lleocal.update(data, cal_dict, param, bound, start, end)
+        cal_dict = pylleo.lleocal.update(data, cal_dict, param, region, start, end)
         yamlord.write_yaml(cal_dict, cal_yaml_path)
     else:
         msg = '''
@@ -220,71 +224,91 @@ def callback_save_indices():
 
 
 def callback_save_poly():
-    '''Perform polyfit once bounds selected'''
+    '''Perform polyfit once regions selected
+
+    Globals: cal_fname, data (read-only, so no declaration)
+    '''
     import datetime
     import pylleo
     import yamlord
     import itertools
 
-    def missing_parameter(p):
+    def _check_param_regions(param, regions, cal_dict):
         msg = '''
               <b>{}</b> was not found in the calibration dictionary.
 
               Process that parameter and then try saving the polyfit again.
-              '''.format(p)
-        output_window.text = output_template.format(msg)
+              '''.format(param)
 
-    def indices_misordered(start, end, p, b):
-        msg = '''
-              The start index ({}) comes after the end index ({}).
+        params_present = True
+        if param not in cal_dict['parameters']:
+            params_present = False
+            msg.format(param)
+        else:
+            for region in regions:
+                if region not in cal_dict['parameters'][param]:
+                    params_present = False
+                    msg.format('{}/{}'.format(param, region))
+                    output_window.text = output_template.format(msg)
 
-              Please set new start/end indexes for <b>{}/{}</b>
-              '''.format(start, end, p, b)
-        output_window.text = output_template.format(msg)
+        return params_present
+
+
+    def _check_index_order(param, regions, cal_dict):
+        '''Check that index positions exist for each calibration region'''
+
+        indices_present = True
+        for region in regions:
+            start = cal_dict['parameters'][param][region]['start']
+            end = cal_dict['parameters'][param][region]['end']
+            # Check if start comes after end
+            if int(start) > int(end):
+                indices_present = False
+                msg = '''
+                      The start index ({}) comes after the end index ({}).
+
+                      Please set new start/end indexes for <b>{}/{}</b>
+                      '''.format(start, end, param, region)
+                msg.format(start, end, param, region)
+                output_window.text = output_template.format(msg)
+
+        return indices_present
+
 
     if datadirs_select.value != 'None':
         data_path = os.path.join(parent_input.value, datadirs_select.value)
         cal_yaml_path = os.path.join(data_path, cal_fname)
         cal_dict = pylleo.lleocal.read_cal(cal_yaml_path)
 
-        # Check that all necessary calibration parameters are present first
-        params_present = True
-        bounds = bounds_select.options
-        for p, b, idx in itertools.product(params_data, bounds, ['start', 'end']):
-            if p not in cal_dict['parameters']:
-                params_present = False
-                missing_parameter(p)
-                break
-            elif b not in cal_dict['parameters'][p]:
-                params_present = False
-                missing_parameter('{}/{}'.format(p, b))
-                break
+        # Get currently selected parameter
+        param = param_select.value
+        regions = region_select.options
 
-            start = cal_dict['parameters'][p][b]['start']
-            end = cal_dict['parameters'][p][b]['end']
-            if start > end:
-                params_present = False
-                indices_misordered(start, end, p, b)
-                break
+        # Check that index positions have been recorded in `cal.yaml`
+        if not _check_index_order(param, regions, cal_dict):
+            return None
+
+        # Check that index positions are in sequence
+        if not _check_index_order(param, regions, cal_dict):
+            return None
 
         param = (param_select.value).lower().replace('-','_')
 
-        if params_present:
-            try:
-                msg = '''
-                      Saved polyfit for <b>{}</b> to <b>{}</b>.
-                      '''.format(param, cal_fname)
-                output_window.text = output_template.format(msg)
+        try:
+            msg = '''
+                  Saved polyfit for <b>{}</b> to <b>{}</b>.
+                  '''.format(param, cal_fname)
+            output_window.text = output_template.format(msg)
 
-                lower, upper = pylleo.lleocal.get_cal_data(data, cal_dict, param)
-                poly = list(pylleo.lleocal.fit1d(lower, upper))
-                poly = [float(str(i)) for i in poly]
+            lower, upper = pylleo.lleocal.get_cal_data(data, cal_dict, param)
+            poly = list(pylleo.lleocal.fit1d(lower, upper))
+            poly = [float(str(i)) for i in poly]
 
-                cal_dict['parameters'][param]['poly'] = poly
-                yamlord.write_yaml(cal_dict, cal_yaml_path)
-            except Exception as e:
-                msg = 'Problem saving polyfit: {}'.format(e)
-                output_window.text = output_template.format(msg)
+            cal_dict['parameters'][param]['poly'] = poly
+            yamlord.write_yaml(cal_dict, cal_yaml_path)
+        except Exception as e:
+            msg = 'Problem saving polyfit: {}'.format(e)
+            output_window.text = output_template.format(msg)
     else:
         msg = '''
               You must first load data and select indices for calibration
@@ -314,7 +338,6 @@ from bokeh.io import curdoc
 cal_fname = 'cal.yaml'
 sample_f  = 30
 dt_fmt = '%H:%M'
-data = None
 
 # Create Column Data Source that will be used by the plot
 # use 6hr span to avoid straing xaxis labels
@@ -326,7 +349,7 @@ source = ColumnDataSource(data = dict(x = [0, 0],
                                       ind = [0, 0],
                                       dt = [t0, t1],
                                       dt_str = [t0.strftime(dt_fmt),
-                                                t1.strftime(dt_fmt)]
+                                                t1.strftime(dt_fmt)],
                                       ))
 
 # Input
@@ -355,10 +378,10 @@ params_data = ['None']
 title = 'Parameter to calibrate:'
 param_select = Select(title=title, value=params_data[0], options=params_data)
 
-# Select upper or lower acceleration bound to calibrate
-bounds = ['None']
+# Select upper or lower acceleration region to calibrate
+regions = ['None']
 title = 'Bound (lower = -g; upper = +g):'
-bounds_select = Select(title=title, value=bounds[0], options=bounds)
+region_select = Select(title=title, value=regions[0], options=regions)
 
 # User input start end times, save to cal
 start_input = TextInput(value='0', title='Start index:')
@@ -369,7 +392,7 @@ button_save = Button(label='Save Index Values', button_type='success')
 button_save.on_click(callback_save_indices)
 
 # Perform a polyfit on the data points occuring between the start/end points
-# for the parameter and bound selected from the dropdown menus
+# for the parameter and region selected from the dropdown menus
 button_poly = Button(label='Perform Polyfit', button_type='success')
 button_poly.on_click(callback_save_poly)
 
@@ -404,7 +427,7 @@ for scat in scats:
 # Rendering
 #------------------------------------------------------------------------------
 # Bundle controls for inserting into the layout
-controls = (param_checkbox_pre, param_checkbox, param_select, bounds_select,
+controls = (param_checkbox_pre, param_checkbox, param_select, region_select,
             start_input, end_input, button_save, button_poly)
 
 # Create layout

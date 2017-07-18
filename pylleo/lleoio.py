@@ -1,49 +1,3 @@
-def get_testdata_path(tag_model):
-    '''Get path to sample data directory for given tag model'''
-    import os
-
-    tag_model = tag_model.upper().replace('-','').replace('_','')
-    sample_path = os.path.join('../datasets/{}'.format(tag_model))
-
-    if not os.path.isdir(sample_path):
-        raise FileNotFoundError('No sample dataset found for tag '
-                                '{}.'.format(tag_model))
-    return sample_path
-
-
-def load_tag_params(tag_model):
-    '''Load param strs and n_header based on model of tag model'''
-
-    tag_model = tag_model.replace('-', '').upper()
-
-    tags = dict()
-    tags['W190PD3GT'] = ['Acceleration-X', 'Acceleration-Y', 'Acceleration-Z',
-                         'Depth', 'Propeller', 'Temperature']
-
-    # Return tag parameters if found, else raise error
-    if tag_model in tags:
-        return tags[tag_model]
-    else:
-        raise KeyError('{} not found in tag dictionary'.format(tag_model))
-
-
-def get_file_path(data_path, search_str, file_ext):
-    '''Find path of file in directory containing the search string'''
-    import os
-
-    file_path = None
-
-    for file_name in os.listdir(data_path):
-        if (search_str in file_name) and (file_name.endswith(file_ext)):
-            file_path = os.path.join(data_path, file_name)
-            break
-
-    if file_path == None:
-        raise SystemError('No file found containing string: '
-                          '{}.'.format(search_str))
-
-    return file_path
-
 
 def read_meta(data_path, tag_model, tag_id):
     '''Read meta data from Little Leonardo data header rows
@@ -51,11 +5,11 @@ def read_meta(data_path, tag_model, tag_id):
     Args
     ----
     data_path: str
-        parent directory containing lleo data files
+        Parent directory containing lleo data files
     tag_model: str
-        lleo tag model name
+        Little Leonardo tag model name
     tag_id: str, int
-        lleo tag ID number
+        Little Leonardo tag ID number
 
     Returns
     -------
@@ -77,25 +31,24 @@ def read_meta(data_path, tag_model, tag_id):
         return key.strip(), val.strip()
 
 
-    def _read_meta_all(file_path, meta, n_header):
+    def _read_meta_all(f, meta, n_header):
         '''Read all meta data from header rows of data file'''
 
-        with open(file_path, 'r', encoding='ISO-8859-1') as f:
-            # Skip 'File name' line
-            f.seek(0)
-            _ = f.readline()
+        # Skip 'File name' line
+        f.seek(0)
+        _ = f.readline()
 
-            # Create child dictionary for channel / file
+        # Create child dictionary for channel / file
+        line = f.readline()
+        key_ch, val_ch = _parse_meta_line(line)
+        val_ch = utils.posix_string(val_ch)
+        meta['parameters'][val_ch] = OrderedDict()
+
+        # Write header values to channel dict
+        for _ in range(n_header-2):
             line = f.readline()
-            key_ch, val_ch = _parse_meta_line(line)
-            val_ch = utils.posix_string(val_ch)
-            meta['parameters'][val_ch] = OrderedDict()
-
-            # Write header values to channel dict
-            for _ in range(n_header-2):
-                line = f.readline()
-                key, val = _parse_meta_line(line)
-                meta['parameters'][val_ch][key] = val.strip()
+            key, val = _parse_meta_line(line)
+            meta['parameters'][val_ch][key] = val.strip()
 
         return meta
 
@@ -104,27 +57,29 @@ def read_meta(data_path, tag_model, tag_id):
         '''Create meta data dictionary'''
         import datetime
 
-        param_strs = load_tag_params(tag_model)
-
-        # TODO determine n_header automatically
-        n_header = 10
+        param_strs = utils.get_tag_params(tag_model)
 
         # Create dictionary of meta data
         meta = OrderedDict()
-        meta['tag_model'] = tag_model
-        meta['tag_id'] = tag_id
-        meta['experiment'] = os.path.split(data_path)[1]
+        params_tag = utils.parse_experiment_params(data_path)
+        for key, value in params_tag.items():
+            meta[key] = value
 
         fmt = "%Y-%m-%d %H:%M:%S"
         meta['date_modified'] = datetime.datetime.now().strftime(fmt)
 
         meta['parameters'] = OrderedDict()
-        meta['parameters']['n_header'] = n_header
 
         for param_str in param_strs:
             print('Create meta entry for {}'.format(param_str))
-            file_path = get_file_path(data_path, param_str, '.TXT')
-            meta      = _read_meta_all(file_path, meta, n_header=n_header)
+
+            file_path = utils.find_file(data_path, param_str, '.TXT')
+            # Get number of header rows
+            enc = utils.predict_encoding(file_path, n_lines=20)
+            with open(file_path, 'r', enconding=enc) as f:
+                n_header = utils.get_n_header(f)
+                f.seek(0)
+                meta = _read_meta_all(f, meta, n_header=n_header)
 
         return meta
 
@@ -159,23 +114,21 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
     Returns
     -------
     acc: pandas.DataFrame
-        DataFrame containing accelerometry data on x, y, z axes [m/s^2]
+        Dataframe containing accelerometry data on x, y, z axes [m/s^2]
     depth: pandas.DataFrame
-        DataFrame containing depth data [m]
+        Dataframe containing depth data [m]
     prop: pandas.DataFrame
-        DataFrame containing speed data from propeller
+        Dataframe containing speed data from propeller
     temp: pandas.DataFrame
-        DataFrame containing temperature data
+        Dataframe containing temperature data
     '''
     import os
     import pandas
 
     from . import utils
 
-    #TODO pass params in meta directly, remove dependence on meta
-
-    def _calc_datetimes(date, time, interval_s, n_timestamps):
-        '''Combine accelerometry data'''
+    def _generate_datetimes(date, time, interval_s, n_timestamps):
+        '''Generate list of datetimes from date/time with given interval'''
         from datetime import datetime, timedelta
         import pandas
 
@@ -213,9 +166,13 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
         from . import utils
 
         # Get path of data file and associated pickle file
-        file_path = get_file_path(data_path, param_str, '.TXT')
+        file_path = utils.find_file(data_path, param_str, '.TXT')
         col_name = utils.posix_string(param_str)
-        n_header = meta['parameters']['n_header']
+
+        # Get number of header rows in file
+        enc = predict_encoding(file_path, n_lines=20)
+        with open(file_path, 'r', enconding=enc) as f:
+            n_header = utils.get_n_header(f)
 
         print('\nReading: {}'.format(col_name))
 
@@ -225,8 +182,8 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
         date = meta['parameters'][col_name]['Start date']
         time = meta['parameters'][col_name]['Start time']
 
+        # TODO review
         # Generate summed data if propeller sampling rate not 1
-        # TODO review and make more general
         if (col_name == 'propeller') and (interval_s < 1):
             print('Too high sampling interval, taking sums')
             # Sampling rate
@@ -243,14 +200,14 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
 
             print('data after', data.max())
 
-        datetimes = _calc_datetimes(date, time, interval_s, len(data))
+        datetimes = _generate_datetimes(date, time, interval_s, len(data))
         data      = numpy.vstack((datetimes, data)).T
         df        = pandas.DataFrame(data, columns=['datetimes', col_name])
 
         return df
 
     # Get list of string parameter names for tag model
-    param_names = load_tag_params(meta['tag_model'])
+    param_names = utils.get_tag_params(meta['tag_model'])
 
     # Load pickle file exists and code unchanged
     pickle_file = os.path.join(data_path, 'pydata_'+meta['experiment']+'.p')
@@ -277,5 +234,3 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
 
     # Return DataFrame with ever `sample_f` values
     return data_df.iloc[::sample_f,:]
-
-    # TODO resample/decimate/interpolate

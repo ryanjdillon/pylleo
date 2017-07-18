@@ -76,7 +76,7 @@ def read_cal(cal_yaml_path):
         cal_dict = __create_cal(cal_yaml_path)
         cal_dict['parameters'] = OrderedDict()
 
-    for key, val in utils.parse_tag_params(cal_dict['experiment']).items():
+    for key, val in utils.parse_experiment_params(cal_dict['experiment']).items():
         cal_dict[key] = val
 
     fmt = "%Y-%m-%d %H:%M:%S"
