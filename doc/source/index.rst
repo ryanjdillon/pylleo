@@ -10,9 +10,9 @@ Welcome to pylleo's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-.. automodule:: lleoio
-    :members:
-
+   guide
+   calibration
+   api
 
 
 Indices and tables
