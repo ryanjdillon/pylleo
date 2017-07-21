@@ -2,13 +2,11 @@
 
 Calibration
 ===========
-
 .. note:: Currently only tag model W190PD3GT is covered, but other tags will be
           added as opportunity permits.
 
 Accelerometer
 -------------
-
 .. note:: The calibration procedure described below needs review (particularly
           the orientation of the sensor for the associated gravitational
           forces). This will be updated to be a thorough explanation in
@@ -23,7 +21,9 @@ should be created using the process described below.
 Collecting calibration data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 First configure and activate the datalogger for recording. For a period of
-approximately 10 seconds, longer durations make visually identifying these periods in the data easier, orient the tag in each of the following orientations, one axis at a time.
+approximately 10 seconds orient the tag in each of the following
+orientations, one axis at a time. Longer durations make visually identifying
+these periods in the data easier.
 
 +--------+--------------------------------+--------------------------------+
 |        | **+g** orientation             | **-g** orientation             |
@@ -40,36 +40,49 @@ approximately 10 seconds, longer durations make visually identifying these perio
 
 Running the calibration software
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The calibration of accelerometer sensor data is performed by making a linear
-fit between a collection of points occuring at **-g** orientation of an axis
-and a collection of points at **+g** orientation of an axis. This fit can then
-be applied to the original accelerometer count data to transform the data into
-units of **g**.
+Calibration is performed on accelerometer sensor data that does not have
+accompanying magnetometer or gyroscope data by performing by making a linear
+fit between a collection of points occurring at **-g** and  **+g** orientations
+of an axis. This fit can then be applied to the original accelerometer count
+data to transform the data into units of **g**.
 
-An application to simplify this process can be run by executing the script ____
-on the data directory to be calibrated, which will bring up the following screen
-in the default web browser. By zooming into segments of data when the
-datalogger was oriented as described above, a selection tool can be used to
-select those data points to be used for calibration. The start and stop index
-positions for each of these segments are saved to a file in the data directory
-`cal.yaml`, and once all indices have been saved the fit coefficients can be
-calculated and saved to the same file. These coefficients can later be used for
-applying the fit to the data points using the routine
-`lleocal.calibrate_accelerometer()`.
+Launching the application
++++++++++++++++++++++++++
+An application for simplifying the calibration process (made with the `bokeh
+<http://bokeh.pydata.org/en/latest/>`_ visualization library) has been included
+with `pylleo` as an executable script, which launches a bokeh application in
+your web-browser.
 
-Launch the application
-++++++++++++++++++++++
+The script is automatically installed with `pylleo`, just run it from the
+command-line with an option for specifying how it opens in your browser:
 
 .. code::
 
-   bokeh serve --show bin/bokeh_calibration.py --args 1 <experiment data path>
+    Usage: pylleo-cal [OPTIONS]
 
-This will bring up the following page in you web browser:
+      Calibrate accelerometer data
+
+    Options:
+      --new TEXT  Method to open application in browser. "tab" opens the
+                  application in a new browser, and "window" opens it in a new
+                  browser window.
+      --help      Show this message and exit.
+
+The following page should appear in your browser, and the application will shut
+itself down when you close this page:
 
 .. image:: /images/calapp/screen_start.png
    :align: center
 
-The tools used later for zooming and selecting the data are in the top right
+By zooming into segments of data when the datalogger was at one of the two
+orientations described above, a selection tool can be used to select those data
+points to be used for calibration. The start and stop index positions for each
+of these segments are saved to a file in the data directory `cal.yaml`, and
+once all indices have been saved the fit coefficients can be calculated and
+saved to the same file. These coefficients can later be used for applying the
+fit to the data points using the routine `lleocal.calibrate_accelerometer()`.
+
+The tools for zooming and selecting the data are in the top right
 hand corner of the page. A summary table of the tools used in the app
 (shown below) have been taken from the `Bokeh` `documentation for plot
 tools
@@ -106,7 +119,6 @@ tools
 
 Loading data
 ++++++++++++
-
 All of your data should be organized in their own directories within one
 "parent" directory. Copy-paste the *full path* to this parent directory to the
 text input field labeled "Parent directory".
@@ -123,7 +135,6 @@ select it from the list and its data will be loaded.
 
 Selecting data
 ++++++++++++++
-
 The app first loads all three axes of acceleration data, which from time to
 time may be helpful to view at the same time for comparing differences between
 the axes in +g/-g orientations. When selecting the index positions for the
@@ -173,7 +184,6 @@ positions of the start and end of the horizontal area selected:
 
 Saving the index values
 +++++++++++++++++++++++
-
 Once you have `start` and `end` index values for the region you are working
 with (e.g. `accelerometer_x/lower`), Click the button labeled "Save Index
 Values":
@@ -186,7 +196,6 @@ correctly to the `cal.yaml`. This message includes the data parameter and bound
 you have selected and the `start` and `end` index positions you have selected:
 
 .. image:: /images/calapp/terminal_update-success.png
-
 
 Once completed, you can zoom out again using the |wheel| tool to perform these
 steps on the "upper" region. Be sure to select the correct data parameter and

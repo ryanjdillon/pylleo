@@ -12,6 +12,7 @@ Welcome to pylleo's documentation!
 
    guide
    calibration
+   docs
    api
 
 
