@@ -1,9 +1,8 @@
 from setuptools import setup
-from codecs import open  # To use a consistent encoding
-from os import path
+import os
 
-here = path.abspath(path.dirname(__file__))
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+here = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
@@ -17,11 +16,17 @@ setup(
     url='https://github.com/ryanjdillon/pylleo',
     download_url='https://github.com/ryanjdillon/pylleo/archive/0.1.tar.gz',
     license='GPL-3.0+',
-    packages=['pylleo',],
-    keywords=['datalogger','accelerometer'],
+    packages=['pylleo'],
+    install_requires=[
+        'bokeh==0.12.6',
+        'click==6.7',
+        'pandas==0.20.3',
+        'yamlord==0.4']
+    scripts=['bin/pylleo-cal'],
+    keywords=['datalogger','accelerometer','biotelemetry'],
     classifiers=[
-    'Development Status :: 3 - Alpha',
-    'Intended Audience :: Science/Research',
-    'Programming Language :: Python :: 3.5'],
-    zip_safe=False
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Science/Research',
+        'Programming Language :: Python :: 3.5'],
+    zip_safe=False,
     )
