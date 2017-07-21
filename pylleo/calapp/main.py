@@ -7,7 +7,7 @@ the times at which various axis of the lleo tag have been placed into +/-g
 orientations.
 
 Enter the start and end times of these orientation periods, then click 'save'
-to write those to a calibration YAML file (cal.yaml) in the data directory
+to write those to a calibration YAML file (cal.yml) in the data directory
 
 Example
 -------
@@ -192,7 +192,7 @@ def callback_save_indices():
 
     if datadirs_select.value != 'None':
         data_path = os.path.join(parent_input.value, datadirs_select.value)
-        cal_yaml_path = os.path.join(data_path, 'cal.yaml')
+        cal_yaml_path = os.path.join(data_path, 'cal.yml')
 
         param = (param_select.value).lower().replace('-','_')
         region = region_select.value
@@ -216,7 +216,7 @@ def callback_save_indices():
     else:
         msg = '''
               You must first load data and select indices for calibration
-              regions before you can save the indices to `cal.yaml`
+              regions before you can save the indices to `cal.yml`
               '''
         output_window.text = output_template.format(msg)
 
@@ -284,7 +284,7 @@ def callback_save_poly():
         param = param_select.value
         regions = region_select.options
 
-        # Check that index positions have been recorded in `cal.yaml`
+        # Check that index positions have been recorded in `cal.yml`
         if not _check_index_order(param, regions, cal_dict):
             return None
 
@@ -312,7 +312,7 @@ def callback_save_poly():
     else:
         msg = '''
               You must first load data and select indices for calibration
-              regions before you can save to polyfit to `cal.yaml`
+              regions before you can save to polyfit to `cal.yml`
               '''
         output_window.text = output_template.format(msg)
 
@@ -335,7 +335,7 @@ from bokeh.io import curdoc
 
 # DATA
 #------------------------------------------------------------------------------
-cal_fname = 'cal.yaml'
+cal_fname = 'cal.yml'
 sample_f  = 30
 dt_fmt = '%H:%M'
 

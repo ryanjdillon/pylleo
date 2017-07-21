@@ -85,7 +85,7 @@ def read_meta(data_path, tag_model, tag_id):
 
 
     # Load meta data from YAML file if it already exists
-    meta_yaml_path = os.path.join(data_path, 'meta.yaml')
+    meta_yaml_path = os.path.join(data_path, 'meta.yml')
 
     # Load file if exists else create
     if os.path.isfile(meta_yaml_path):

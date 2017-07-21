@@ -77,7 +77,7 @@ itself down when you close this page:
 By zooming into segments of data when the datalogger was at one of the two
 orientations described above, a selection tool can be used to select those data
 points to be used for calibration. The start and stop index positions for each
-of these segments are saved to a file in the data directory `cal.yaml`, and
+of these segments are saved to a file in the data directory `cal.yml`, and
 once all indices have been saved the fit coefficients can be calculated and
 saved to the same file. These coefficients can later be used for applying the
 fit to the data points using the routine `lleocal.calibrate_accelerometer()`.
@@ -192,7 +192,7 @@ Values":
 
 You should then see a message displayed in the gray box to the right of the
 selection menu letting you know that the index positions for that region saved
-correctly to the `cal.yaml`. This message includes the data parameter and bound
+correctly to the `cal.yml`. This message includes the data parameter and bound
 you have selected and the `start` and `end` index positions you have selected:
 
 .. image:: /images/calapp/terminal_update-success.png
@@ -218,7 +218,7 @@ regions, click the button labeled "Perform Polyfit":
 
 .. image:: images/calapp/button_poly.png
 
-If the coefficients were able to successfully save to the `cal.yaml` file, you
+If the coefficients were able to successfully save to the `cal.yml` file, you
 should get a message in the gray box as follows:
 
 .. image:: images/calapp/terminal_poly-success.png

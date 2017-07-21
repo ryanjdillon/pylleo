@@ -70,14 +70,14 @@ Calibration
 
 The acclerometer and propeller data must be calibrated before being used for
 analysis. The sections below provide information on how to apply these
-calibrations. For instructions on how to a calibration file (i.e. `cal.yaml`)
+calibrations. For instructions on how to a calibration file (i.e. `cal.yml`)
 or the propeller calibration `.csv` file, please see the :ref:`calibration`
 documentation.
 
 Calibrating accelerometer data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The calibration file `cal.yaml` created during the calibration process is first
+The calibration file `cal.yml` created during the calibration process is first
 loaded, and then the coefficents for the fit of the calibration data for each
 axis is applied to that axis data in the loaded dataframe.
 
@@ -86,7 +86,7 @@ axis is applied to that axis data in the loaded dataframe.
     from pylleo import lleocal
 
     # Load calibrate data
-    cal_dict = yamlord.read_yaml('cal.yaml')
+    cal_dict = yamlord.read_yaml('cal.yml')
 
     # Apply calibration to accelerometer axes and
     # save as new columns to the dataframe
