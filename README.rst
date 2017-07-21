@@ -6,11 +6,15 @@ Pylleo
 A collection of python utilities for working with data from Little
 Leonardo accelerometers
 
-Installation
-============
+Quickstart
+==========
+`pylleo` is currently only available for `Python 3` and has not been
+extensively tested with different versions. For more detail, please refer to
+the documentation.
 
-.. code:: bash
-    pip install pylleo
+.. code::
+
+    pip3 install pylleo
 
 Documentation
 -------------
