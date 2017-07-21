@@ -54,5 +54,5 @@ here_
 
 License
 -------
-This project is licensed under the terms of the MIT license. Please see the
+This project is licensed under the terms of the GPLv3 license. Please see the
 license file in this repository.
