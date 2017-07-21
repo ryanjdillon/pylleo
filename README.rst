@@ -26,7 +26,7 @@ Launch an interpreter:
     ipython3
 
 Then load data organized as described in the documentation:
-.. code:: python
+.. code::
 
     import pylleo
 
