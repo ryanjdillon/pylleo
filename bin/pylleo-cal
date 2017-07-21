@@ -1,0 +1,22 @@
+#!/usr/bin/env/python3
+
+import click
+@click.command(help='Calibrate accelerometer data')
+@click.option('--new', default='tab',
+              help= ('Method to open application in browser. "tab" opens the '
+		     'application in a new browser, and "window" opens it in '
+		     'a new browser window.'))
+def calibrate(new='tab'):
+    '''Run the calibration application until browser window or tab are closed'''
+    import os
+    import pylleo
+
+    module_path = os.path.split(pylleo.__file__)[0]
+    app_path = os.path.join(module_path, 'calapp')
+
+    pylleo.utils_bokeh.run_server_to_disconnect([app_path], port=5000, new=new)
+
+    return None
+
+if __name__ == '__main__':
+    calibrate()

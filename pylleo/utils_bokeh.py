@@ -1,83 +1,124 @@
-#!/usr/bin/env python3
 
-import click
-
-@click.command(help='Perform Little Leonardo accelerometer calibrations')
-@click.option('--data-root', prompt=True, help='Data parent directory')
-
-def calibrate_multiple(data_root):
-    '''Run calibration on all child directories within `data_root`'''
-    import os
+def create_bokeh_server(io_loop, files, argvs, host, port):
+    '''Start bokeh server with applications paths'''
     from bokeh.server.server import Server
-    from pylleo.bokeh_calibration import Calibrate
-    import subprocess
-    #import time
-    # NOTE This could generalize by using a normal app_path and having the
-    # session get pushed to the server within this code, then an app_path and
-    # data parent directory could be passed to run different apps on the data
-    # directory.
+    from bokeh.command.util import build_single_handler_applications
 
-    ## *nix solution: https://stackoverflow.com/a/13143013/943773
-    #cmd = 'exec bokeh serve'
-    #p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, shell=True)
-    ## Kill the Bokeh server process
-    #p.kill()
+    # Turn file paths into bokeh apps
+    apps = build_single_handler_applications(files, argvs)
 
-    module_path = os.path.split(os.path.split(pylleo.__file__)[0])[0]
-    script_path = os.path.join(module_path, 'bin', 'bokeh_calibration.py')
+    # kwargs lifted from bokeh serve call to Server, with created io_loop
+    kwargs = {
+        'io_loop':io_loop,
+        'generate_session_ids':True,
+        'redirect_root':True,
+        'use_x_headers':False,
+        'secret_key':None,
+        'num_procs':1,
+        'host': host,
+        'sign_sessions':False,
+        'develop':False,
+        'port':port,
+        'use_index':True
+    }
+    server = Server(apps,**kwargs)
 
-    # Process1 - Start a bokeh server process
-    server = Server()
-    server.run_until_shutdown()
-
-    # Process2 -  Open directories within `data_root`
-    child_paths_found = False
-    i = 0
-    for d in sorted(os.listdir(data_root)):
-        data_path = os.path.join(data_root, d)
-        if os.path.isdir(data_path):
-            child_paths_found = True
-            #time.sleep(2)
-
-            session_id = 'session_{}'.format(i)
-            calapp = Calibrate(data_path, sample_f=30)
-            calapp.start(session_id=session_id)
-            app_running = True
-            while app_running:
-                if session_id in server.get_sessions():
-                    app_running = False
-            i += 1
-
-    server.stop()
-
-    # If no sub-directories with data found in `data_root` raise error
-    if child_paths_found is False:
-        raise FileNotFoundError('No children data directories found in:\n'
-                                '{}'.format(data_root))
-    return None
+    return server
 
 
-def calibrate(data_path, sample_f=30):
-    '''Run calibrations on multiple directory paths'''
+def run_server_to_disconnect(files, port=5000, new='tab'):
+
+    def start_bokeh(io_loop):
+        '''Start the `io_loop`'''
+        io_loop.start()
+        return None
+
+    def launch_app(host, app_name, new):
+        '''Lauch app in browser
+
+        Ideally this would `bokeh.util.browser.view()`, but it doesn't work
+        '''
+        import webbrowser
+
+        # Map method strings to webbrowser method
+        options = {'current':0, 'window':1, 'tab':2}
+
+        # Concatenate url and open in browser, creating a session
+        app_url = 'http://{}/{}'.format(host, app_name)
+        print('Opening `{}` in browser'.format(app_url))
+        webbrowser.open(app_url, new=options[new])
+
+        return None
+
+    def server_loop(server, io_loop):
+        '''Check connections once session created and close on disconnect'''
+        import time
+
+        connected = [True,]
+        session_loaded = False
+        while any(connected):
+
+            # Check if no session started on server
+            sessions = server.get_sessions()
+            if not session_loaded:
+                if sessions:
+                    session_loaded = True
+            # Once 1+ sessions started, check for no connections
+            else:
+                # List of bools for each session
+                connected = [True,]*len(sessions)
+                # Set `connected` item false no connections on session
+                for i in range(len(sessions)):
+                    if sessions[i].connection_count == 0:
+                        connected[i] = False
+            # Keep the pace down
+            time.sleep(2)
+
+        # Stop server once opened session connections closed
+        io_loop.stop()
+
+        return None
+
     import os
-    import subprocess
+    import threading
+    import tornado.ioloop
+    import tornado.autoreload
+    import time
 
-    import pylleo
+    # Initialize some values, sanatize the paths to the bokeh plots
+    argvs = {}
+    app_names = []
+    for path in files:
+        argvs[path] = None
+        app_names.append(os.path.splitext(os.path.split(path)[1])[0])
 
-    module_path = os.path.split(os.path.split(pylleo.__file__)[0])[0]
-    script_path = os.path.join(module_path, 'bin', 'bokeh_calibration.py')
+    # Concate hostname/port for creating handlers, launching apps
+    host = 'localhost:{}'.format(port)
 
+    # Initialize the tornado server
+    io_loop = tornado.ioloop.IOLoop.instance()
+    tornado.autoreload.start(io_loop)
 
-    # Assemble and run command calling Bokeh calibration application
-    cmd = ['bokeh', 'serve', '--show', script_path, '--args', str(sample_f),
-            data_path]
+    # Add the io_loop to the bokeh server
+    server = create_bokeh_server(io_loop, files, argvs, host, port)
 
-    output = subprocess.check_output(' '.join(cmd), stderr=subprocess.STDOUT,
-                                     shell=True)
-    print(output)
+    print('Starting the server on {}'.format(host))
+    args = (io_loop,)
+    th_startup = threading.Thread(target=start_bokeh, args=args)
+    th_startup.start()
+
+    # Launch each application in own tab or window
+    th_launch = [None,]*len(app_names)
+    for i in range(len(app_names)):
+        args = (host, app_names[i], new)
+        th_launch[i] = threading.Thread(target=launch_app, args=args)
+        th_launch[i].start()
+        # Delay to allow tabs to open in same browser window
+        time.sleep(2)
+
+    # Run session connection test, then stop `io_loop`
+    args = (server, io_loop)
+    th_shutdown = threading.Thread(target=server_loop, args=args)
+    th_shutdown.start()
 
     return None
-
-
-if __name__ == '__main__':
-    calibrate_multiple()

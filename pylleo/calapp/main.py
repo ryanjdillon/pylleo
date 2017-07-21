@@ -357,7 +357,7 @@ source = ColumnDataSource(data = dict(x = [0, 0],
 # Path for entering the parent directory of data directories
 title = 'Parent directory:'
 css = ['widthfix']
-parent_input = TextInput(placeholder=' '*100, title=title, css_classes=css)
+parent_input = TextInput(value=' ', title=title, css_classes=css)
 parent_input.on_change('value', callback_parent)
 
 # Dropdown list of data directories in parent to load data from
