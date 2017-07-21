@@ -1,6 +1,30 @@
 Guide
 =====
 
+Installation
+------------
+`pylleo` is written in `Python 3.5` and does not currently support prior
+versions. It is available from the PyPi repository and can be installed using
+`pip`:
+
+.. code::
+
+    pip3 install pylleo
+
+It is preferable to use a Python virtual environment, particularly to avoid any
+problems if you are have multiple Python versions installed.
+
+.. code::
+
+   cd <project path>
+   virtualenv --python=python3 venv
+   source venv/bin/activate
+   pip install pylleo
+
+If you have installed `pylleo` using a virtual environment, be sure to activate
+that environment before running the `pylleo-cal` script described in the
+:ref:`calibration` documentation.
+
 Loading data
 ------------
 The data must first be downloaded from the datalogger using the Little Leonardo
