@@ -21,7 +21,7 @@ setup(
         'bokeh==0.12.6',
         'click==6.7',
         'pandas==0.20.3',
-        'yamlord==0.4']
+        'yamlord==0.4'],
     scripts=['bin/pylleo-cal'],
     keywords=['datalogger','accelerometer','biotelemetry'],
     classifiers=[
