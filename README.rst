@@ -21,12 +21,14 @@ Install
 Load data
 ~~~~~~~~~
 Launch an interpreter:
+
 .. code::
 
     ipython3
 
 Then load data organized as described in the documentation:
-.. code::
+
+.. code:: python
 
     import pylleo
 
