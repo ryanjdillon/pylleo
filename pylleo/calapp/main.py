@@ -43,12 +43,12 @@ def plot_triaxial(height, width, tools):
     return p, lines, scats
 
 
-def load_data(data_path):
+def load_data(path_dir):
     '''Load data, directory parameters, and accelerometer parameter names
 
     Args
     ----
-    data_path: str
+    path_dir: str
         Path to the data directory
 
     Returns
@@ -63,13 +63,13 @@ def load_data(data_path):
     import os
     import pylleo
 
-    exp_name = os.path.split(data_path)[1]
+    exp_name = os.path.split(path_dir)[1]
     params_tag = pylleo.utils.parse_experiment_params(exp_name)
 
     # Load the Little Leonardo tag data
-    meta = pylleo.lleoio.read_meta(data_path, params_tag['tag_model'],
+    meta = pylleo.lleoio.read_meta(path_dir, params_tag['tag_model'],
                                    params_tag['tag_id'])
-    data = pylleo.lleoio.read_data(meta, data_path, sample_f=sample_f)
+    data = pylleo.lleoio.read_data(meta, path_dir, sample_f=sample_f)
 
     # Get and curate the parameter names of the loaded dataframe
     params_data = pylleo.utils.get_tag_params(params_tag['tag_model'])
@@ -82,6 +82,10 @@ def load_data(data_path):
 def callback_parent(attr, old, new):
     '''Update data directories drop down with new parent directory'''
     import os
+
+    # Remove accidental white space if copy/pasted
+    new = new.strip()
+    parent_input.value = new
 
     # Verify new parent path exists and update `datadirs_select` widget
     if os.path.exists(new):
@@ -99,7 +103,7 @@ def callback_parent(attr, old, new):
               The parent path `{}` does not exist.
 
               Check that you have entered the absolute path.
-              '''.format(new.value)
+              '''.format(new)
         output_window.text = output_template.format(msg)
 
     return None
@@ -113,8 +117,8 @@ def callback_datadirs(attr, old, new):
 
     try:
         # Load data from new data directory
-        data_path = os.path.join(parent_input.value, new)
-        data, params_tag, params_data = load_data(data_path)
+        path_dir = os.path.join(parent_input.value, new)
+        data, params_tag, params_data = load_data(path_dir)
 
         # Make title with new data directory
         p.title.text = 'Calibrating {}'.format(params_tag['experiment'])
@@ -191,8 +195,8 @@ def callback_save_indices():
     import yamlord
 
     if datadirs_select.value != 'None':
-        data_path = os.path.join(parent_input.value, datadirs_select.value)
-        cal_yaml_path = os.path.join(data_path, 'cal.yml')
+        path_dir = os.path.join(parent_input.value, datadirs_select.value)
+        cal_yaml_path = os.path.join(path_dir, 'cal.yml')
 
         param = (param_select.value).lower().replace('-','_')
         region = region_select.value
@@ -276,8 +280,8 @@ def callback_save_poly():
 
 
     if datadirs_select.value != 'None':
-        data_path = os.path.join(parent_input.value, datadirs_select.value)
-        cal_yaml_path = os.path.join(data_path, cal_fname)
+        path_dir = os.path.join(parent_input.value, datadirs_select.value)
+        cal_yaml_path = os.path.join(path_dir, cal_fname)
         cal_dict = pylleo.lleocal.read_cal(cal_yaml_path)
 
         # Get currently selected parameter
@@ -357,7 +361,7 @@ source = ColumnDataSource(data = dict(x = [0, 0],
 # Path for entering the parent directory of data directories
 title = 'Parent directory:'
 css = ['widthfix']
-parent_input = TextInput(value=' ', title=title, css_classes=css)
+parent_input = TextInput(value='', title=title, css_classes=css)
 parent_input.on_change('value', callback_parent)
 
 # Dropdown list of data directories in parent to load data from
@@ -434,7 +438,7 @@ controls = (param_checkbox_pre, param_checkbox, param_select, region_select,
 row1 = row(column(widgetbox(parent_input, datadirs_select)))
 col1 = column(widgetbox(*controls), width=350)
 # See `output_template for css sizing of window
-vbuffer = row(height=35)
+vbuffer = row([], height=35)
 col2 = column(vbuffer, widgetbox(output_window))
 row2 = row(col1, col2)
 

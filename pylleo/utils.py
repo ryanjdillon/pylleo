@@ -21,7 +21,7 @@ def predict_encoding(file_path, n_lines=20):
         # Join binary lines for specified number of lines
         rawdata = b''.join([f.readline() for _ in range(n_lines)])
 
-    return chardet.detect(rawdata)
+    return chardet.detect(rawdata)['encoding']
 
 
 def get_n_header(f, header_char='"'):
@@ -41,12 +41,13 @@ def get_n_header(f, header_char='"'):
     '''
 
     n_header = 0
-    headers_read = False
-    while headers_read is False:
-        if (f.readline()).startswith(header_char):
+    reading_headers = True
+    while reading_headers:
+        line = f.readline()
+        if line.startswith(header_char):
             n_header += 1
         else:
-            headers_read == True
+            reading_headers = False
 
     return n_header
 
@@ -66,15 +67,15 @@ def get_tag_params(tag_model):
         raise KeyError('{} not found in tag dictionary'.format(tag_model))
 
 
-def find_file(data_path, search_str, file_ext):
+def find_file(path_dir, search_str, file_ext):
     '''Find path of file in directory containing the search string'''
     import os
 
     file_path = None
 
-    for file_name in os.listdir(data_path):
+    for file_name in os.listdir(path_dir):
         if (search_str in file_name) and (file_name.endswith(file_ext)):
-            file_path = os.path.join(data_path, file_name)
+            file_path = os.path.join(path_dir, file_name)
             break
 
     if file_path == None:
@@ -118,25 +119,29 @@ def nearest(items, pivot):
     return min(items, key=lambda x: abs(x - pivot))
 
 
-def parse_experiment_params(path_data):
+def parse_experiment_params(name_exp):
     '''Parse experiment parameters from the data directory name
 
     Args
     ----
-    path_data: str
-        Data directory name with experiment parameters
+    name_exp: str
+        Name of data directory with experiment parameters
 
     Returns
     -------
     tag_params: dict of str
         Dictionary of parsed experiment parameters
     '''
+    if ('/' in name_exp) or ('\\' in name_exp):
+        raise ValueError("The path {} appears to be a path. Please pass "
+                         "only the data directory's name (i.e. the "
+                         "experiment name)".format(name_exp))
 
     tag_params = dict()
-    tag_params['experiment'] = path_data
-    tag_params['tag_model'] = path_data.split('_')[1]
-    tag_params['tag_id'] = path_data.split('_')[2]
-    tag_params['animal'] = path_data.split('_')[3]
-    tag_params['notes'] = path_data.split('_')[4]
+    tag_params['experiment'] = name_exp
+    tag_params['tag_model'] = (name_exp.split('_')[1]).replace('-','')
+    tag_params['tag_id'] = name_exp.split('_')[2]
+    tag_params['animal'] = name_exp.split('_')[3]
+    tag_params['notes'] = name_exp.split('_')[4]
 
     return tag_params

@@ -60,9 +60,9 @@ then loading the data using the created meta-data.
 
     import pylleo
 
-    data_path = './'
-    meta = pylleo.lleoio.read_meta(data_path, 'W190PD3GT', 34840)
-    data = pylleo.lleoio.read_data(meta, data_path)
+    path_dir = './'
+    meta = pylleo.lleoio.read_meta(path_dir, 'W190PD3GT', 34840)
+    data = pylleo.lleoio.read_data(meta, path_dir)
 
 
 Calibration

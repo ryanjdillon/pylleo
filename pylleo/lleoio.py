@@ -1,10 +1,10 @@
 
-def read_meta(data_path, tag_model, tag_id):
+def read_meta(path_dir, tag_model, tag_id):
     '''Read meta data from Little Leonardo data header rows
 
     Args
     ----
-    data_path: str
+    path_dir: str
         Parent directory containing lleo data files
     tag_model: str
         Little Leonardo tag model name
@@ -53,15 +53,19 @@ def read_meta(data_path, tag_model, tag_id):
         return meta
 
 
-    def _create_meta(data_path, tag_model, tag_id):
+    def _create_meta(path_dir, tag_model, tag_id):
         '''Create meta data dictionary'''
         import datetime
+        from . import utils
 
         param_strs = utils.get_tag_params(tag_model)
 
         # Create dictionary of meta data
         meta = OrderedDict()
-        params_tag = utils.parse_experiment_params(data_path)
+
+        # Create fields for the parameters in data directory name
+        exp_name = os.path.split(path_dir)[1]
+        params_tag = utils.parse_experiment_params(exp_name)
         for key, value in params_tag.items():
             meta[key] = value
 
@@ -73,10 +77,10 @@ def read_meta(data_path, tag_model, tag_id):
         for param_str in param_strs:
             print('Create meta entry for {}'.format(param_str))
 
-            file_path = utils.find_file(data_path, param_str, '.TXT')
+            path_file = utils.find_file(path_dir, param_str, '.TXT')
             # Get number of header rows
-            enc = utils.predict_encoding(file_path, n_lines=20)
-            with open(file_path, 'r', enconding=enc) as f:
+            enc = utils.predict_encoding(path_file, n_lines=20)
+            with open(path_file, 'r', encoding=enc) as f:
                 n_header = utils.get_n_header(f)
                 f.seek(0)
                 meta = _read_meta_all(f, meta, n_header=n_header)
@@ -85,7 +89,7 @@ def read_meta(data_path, tag_model, tag_id):
 
 
     # Load meta data from YAML file if it already exists
-    meta_yaml_path = os.path.join(data_path, 'meta.yml')
+    meta_yaml_path = os.path.join(path_dir, 'meta.yml')
 
     # Load file if exists else create
     if os.path.isfile(meta_yaml_path):
@@ -93,20 +97,20 @@ def read_meta(data_path, tag_model, tag_id):
 
     # Else create meta dictionary and save to YAML
     else:
-        meta = _create_meta(data_path, tag_model, tag_id)
+        meta = _create_meta(path_dir, tag_model, tag_id)
         yamlord.write_yaml(meta, meta_yaml_path)
 
     return meta
 
 
-def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
+def read_data(meta, path_dir, sample_f=1, decimate=False, overwrite=False):
     '''Read accelerometry data from leonardo txt files
 
     Args
     ----
     meta: dict
         Dictionary of meta data from header lines of lleo data files
-    data_path: str
+    path_dir: str
         Parent directory containing lleo data files
     sample_f: int
         Return every `sample_f` data points
@@ -157,7 +161,7 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
         return datetimes
 
 
-    def _read_data_file(meta, data_path, param_str):
+    def _read_data_file(meta, path_dir, param_str):
         '''Read single Little Leonardo txt data file'''
         import numpy
         import os
@@ -166,17 +170,17 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
         from . import utils
 
         # Get path of data file and associated pickle file
-        file_path = utils.find_file(data_path, param_str, '.TXT')
+        path_file = utils.find_file(path_dir, param_str, '.TXT')
         col_name = utils.posix_string(param_str)
 
         # Get number of header rows in file
-        enc = predict_encoding(file_path, n_lines=20)
-        with open(file_path, 'r', enconding=enc) as f:
+        enc = utils.predict_encoding(path_file, n_lines=20)
+        with open(path_file, 'r', encoding=enc) as f:
             n_header = utils.get_n_header(f)
 
         print('\nReading: {}'.format(col_name))
 
-        data = numpy.genfromtxt(file_path, skip_header=n_header)
+        data = numpy.genfromtxt(path_file, skip_header=n_header)
 
         interval_s = float(meta['parameters'][col_name]['Interval(Sec)'])
         date = meta['parameters'][col_name]['Start date']
@@ -210,7 +214,7 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
     param_names = utils.get_tag_params(meta['tag_model'])
 
     # Load pickle file exists and code unchanged
-    pickle_file = os.path.join(data_path, 'pydata_'+meta['experiment']+'.p')
+    pickle_file = os.path.join(path_dir, 'pydata_'+meta['experiment']+'.p')
 
     # Load or create pandas DataFrame with parameters associated with tag model
     if (os.path.exists(pickle_file)) and (overwrite is not True):
@@ -218,7 +222,7 @@ def read_data(meta, data_path, sample_f=1, decimate=False, overwrite=False):
     else:
         first_col = True
         for name in param_names:
-            next_df = _read_data_file(meta, data_path, name)
+            next_df = _read_data_file(meta, path_dir, name)
             if first_col == False:
                 data_df = pandas.merge(data_df, next_df, on='datetimes', how='left')
             else:
