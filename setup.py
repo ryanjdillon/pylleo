@@ -23,6 +23,7 @@ setup(
         'pandas==0.20.3',
         'yamlord==0.4'],
     scripts=['bin/pylleo-cal'],
+    include_package_data=True,
     keywords=['datalogger','accelerometer','biotelemetry'],
     classifiers=[
         'Development Status :: 3 - Alpha',
