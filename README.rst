@@ -14,19 +14,13 @@ the documentation.
 
 Install
 ~~~~~~~
+
 .. code::
 
     pip3 install pylleo
 
 Load data
 ~~~~~~~~~
-Launch an interpreter:
-
-.. code::
-
-    ipython3
-
-Then load data organized as described in the documentation:
 
 .. code:: python
 
@@ -38,6 +32,7 @@ Then load data organized as described in the documentation:
 
 Calibration app
 ~~~~~~~~~~~~~~~
+o
 .. code::
 
     pylleo-cal
