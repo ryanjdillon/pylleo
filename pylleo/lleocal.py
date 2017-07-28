@@ -158,9 +158,9 @@ def calibrate_acc(data_df, cal_dict):
     for ax in ['x', 'y', 'z']:
         col = 'A{}_g'.format(ax)
         col_cal = 'acceleration_{}'.format(ax)
-        data[col_cal] = apply_poly(data, cal_dict, col_name)
+        data_df[col] = apply_poly(data_df, cal_dict, col_cal)
 
-    return data
+    return data_df
 
 
 def create_speed_csv(cal_fname, data):
