@@ -200,19 +200,17 @@ def calibrate_propeller(data_df, cal_fname, plot=False):
         date,est_speed,count_average
         2014-04-18,2.012,30
         '''
+        import datetime
         import matplotlib.pyplot as plt
         import numpy
         import pandas
 
         # Read calibration data
         calibs = pandas.read_csv(cal_fname)
+        calibs['date'] = pandas.to_datetime(calibs['date'])
 
         # Get unique dates to process fits for
-        # TODO make for start timestams
-        dates = calibs['datetimes'].map(lambda dt: datetime.datetime(dt.year,
-                                                                     dt.month,
-                                                                     dt.day))
-        udates = numpy.unique(dates)
+        udates = numpy.unique(calibs['date'])
 
         # Create x data for samples and output array for y
         n_samples = 1000
@@ -223,7 +221,7 @@ def calibrate_propeller(data_df, cal_fname, plot=False):
         # Force intercept through zero (i.e. zero counts = zero speed)
         # http://stackoverflow.com/a/9994484/943773
         for i in range(len(udates)):
-            cal = calibs[dates==udates[i]]
+            cal = calibs[calibs['date']==udates[i]]
             xi = cal['count_average'].values[:, numpy.newaxis]
             yi = cal['est_speed'].values
             m, _, _, _ = numpy.linalg.lstsq(xi, yi)
@@ -248,6 +246,6 @@ def calibrate_propeller(data_df, cal_fname, plot=False):
         return m_avg
 
     m_avg = speed_calibration_average(cal_fname, plot=plot)
-    data['speed'] = m_avg*data['propeller']
+    data_df['speed'] = m_avg * data_df['propeller']
 
-    return data
+    return data_df
