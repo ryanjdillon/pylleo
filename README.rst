@@ -32,7 +32,9 @@ Load data
 
 Calibration app
 ~~~~~~~~~~~~~~~
-o
+Run the `pylleo` calibration application with the `pylleo-cal` command in the
+terminal:
+
 .. code::
 
     pylleo-cal
@@ -49,5 +51,5 @@ here_
 
 License
 -------
-This project is licensed under the terms of the GPLv3 license. Please see the
+This project is licensed under the terms of the MIT license. Please see the
 license file in this repository.
