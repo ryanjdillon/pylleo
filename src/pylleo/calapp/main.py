@@ -12,7 +12,6 @@ to write those to a calibration YAML file (cal.yml) in the data directory
 Example
 -------
 bokeh serve --show bokeh_calibration.py
-
 """
 import datetime
 import os
@@ -61,8 +60,8 @@ def plot_triaxial(height, width, tools):
     lines = [None] * 3
     scats = [None] * 3
     for i, (ax, c) in enumerate(zip(axes, colors)):
-        lines[i] = p.line(y=ax, x="dt", color=c, legend=False, source=source)
-        scats[i] = p.scatter(y=ax, x="dt", color=c, legend=False, size=1, source=source)
+        lines[i] = p.line(y=ax, x="dt", color=c, source=source)
+        scats[i] = p.scatter(y=ax, x="dt", color=c, size=1, source=source)
     return p, lines, scats
 
 
