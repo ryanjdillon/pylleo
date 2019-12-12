@@ -1,3 +1,4 @@
-black
-flake8
 pytest
+black
+pytest-black
+pytest-flake8
