@@ -1,6 +1,5 @@
-
 def create_bokeh_server(io_loop, files, argvs, host, port):
-    '''Start bokeh server with applications paths'''
+    """Start bokeh server with applications paths"""
     from bokeh.server.server import Server
     from bokeh.command.util import build_single_handler_applications
 
@@ -9,52 +8,51 @@ def create_bokeh_server(io_loop, files, argvs, host, port):
 
     # kwargs lifted from bokeh serve call to Server, with created io_loop
     kwargs = {
-        'io_loop':io_loop,
-        'generate_session_ids':True,
-        'redirect_root':True,
-        'use_x_headers':False,
-        'secret_key':None,
-        'num_procs':1,
-        'host': host,
-        'sign_sessions':False,
-        'develop':False,
-        'port':port,
-        'use_index':True
+        "io_loop": io_loop,
+        "generate_session_ids": True,
+        "redirect_root": True,
+        "use_x_headers": False,
+        "secret_key": None,
+        "num_procs": 1,
+        "host": host,
+        "sign_sessions": False,
+        "develop": False,
+        "port": port,
+        "use_index": True,
     }
-    server = Server(apps,**kwargs)
+    server = Server(apps, **kwargs)
 
     return server
 
 
-def run_server_to_disconnect(files, port=5000, new='tab'):
-
+def run_server_to_disconnect(files, port=5000, new="tab"):
     def start_bokeh(io_loop):
-        '''Start the `io_loop`'''
+        """Start the `io_loop`"""
         io_loop.start()
         return None
 
     def launch_app(host, app_name, new):
-        '''Lauch app in browser
+        """Lauch app in browser
 
         Ideally this would `bokeh.util.browser.view()`, but it doesn't work
-        '''
+        """
         import webbrowser
 
         # Map method strings to webbrowser method
-        options = {'current':0, 'window':1, 'tab':2}
+        options = {"current": 0, "window": 1, "tab": 2}
 
         # Concatenate url and open in browser, creating a session
-        app_url = 'http://{}/{}'.format(host, app_name)
-        print('Opening `{}` in browser'.format(app_url))
+        app_url = "http://{}/{}".format(host, app_name)
+        print("Opening `{}` in browser".format(app_url))
         webbrowser.open(app_url, new=options[new])
 
         return None
 
     def server_loop(server, io_loop):
-        '''Check connections once session created and close on disconnect'''
+        """Check connections once session created and close on disconnect"""
         import time
 
-        connected = [True,]
+        connected = [True]
         session_loaded = False
         while any(connected):
 
@@ -66,7 +64,7 @@ def run_server_to_disconnect(files, port=5000, new='tab'):
             # Once 1+ sessions started, check for no connections
             else:
                 # List of bools for each session
-                connected = [True,]*len(sessions)
+                connected = [True] * len(sessions)
                 # Set `connected` item false no connections on session
                 for i in range(len(sessions)):
                     if sessions[i].connection_count == 0:
@@ -93,7 +91,7 @@ def run_server_to_disconnect(files, port=5000, new='tab'):
         app_names.append(os.path.splitext(os.path.split(path)[1])[0])
 
     # Concate hostname/port for creating handlers, launching apps
-    host = 'localhost:{}'.format(port)
+    host = "localhost:{}".format(port)
 
     # Initialize the tornado server
     io_loop = tornado.ioloop.IOLoop.instance()
@@ -102,13 +100,13 @@ def run_server_to_disconnect(files, port=5000, new='tab'):
     # Add the io_loop to the bokeh server
     server = create_bokeh_server(io_loop, files, argvs, host, port)
 
-    print('Starting the server on {}'.format(host))
+    print("Starting the server on {}".format(host))
     args = (io_loop,)
     th_startup = threading.Thread(target=start_bokeh, args=args)
     th_startup.start()
 
     # Launch each application in own tab or window
-    th_launch = [None,]*len(app_names)
+    th_launch = [None] * len(app_names)
     for i in range(len(app_names)):
         args = (host, app_names[i], new)
         th_launch[i] = threading.Thread(target=launch_app, args=args)
