@@ -1,8 +1,11 @@
 language: python
 python:
-  - "3.5"
-# command to install dependencies
+  - "3.6"
+  - "3.7"
+cache: pip
 install:
-  - pip install pylleo
-# command to run tests
-script: nosetests
+  - pip install -r requirements.txt
+  - pip install -r requirements_test.txt
+script:
+  - pytest --doctest-modules src/pylleo/**/*.py
+  - pytest --black --flake8
