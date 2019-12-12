@@ -2,7 +2,10 @@ Pylleo
 ======
 .. |DOI| image:: https://zenodo.org/badge/71535213.svg
    :target: https://zenodo.org/badge/latestdoi/71535213
-|Documentation Status|_ |DOI|
+.. |travis| image:: https://travis-ci.org/ryanjdillon/pylleo.svg?branch=master
+    :target: https://travis-ci.org/ryanjdillon/pylleo
+    
+|DOI|  |travis|  |Documentation Status|_
 
 A collection of python utilities for working with data from Little
 Leonardo accelerometers
