@@ -25,6 +25,7 @@ setup(
     license="GPL-3.0+",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
+    setup_requires=setup_requirements,
     install_requires=requirements("requirements.in"),
     test_requires=requirements("requirements_test.txt"),
     scripts=["bin/pylleo-cal"],
