@@ -1,10 +1,17 @@
 language: python
 python:
-  - "3.6"
-  - "3.7"
+- '3.6'
+- '3.7'
 cache: pip
 install:
-  - pip install -r requirements.txt
-  - pip install -r requirements_test.txt
+- pip install -r requirements.txt
+- pip install -r requirements_test.txt
 script:
-  - pytest --black --flake8
+- pytest --black --flake8
+deploy:
+  provider: pypi
+  user: __token__
+  password:
+    secure: Bpkmne8cdJvTXL/ABESLICj+BCeVmDOQjt8Nb1ioSvsMoGjXrYAtHXw0FyTjpKMQH/pLH7OfhQekhbN5yFjdK5bpb2JcWBJUyk76oas9d3RiIAwC6axSqjjW8NBdJrV4JWFS2wUYBZH5KkxMaNiFby+gFlKZnpXIAHT76jS8ikF8CCqnLMUXXUzwnAPpwl5Ggk5uYXgBg7mvqQnZ0swXB7whkAmQKHWrgg7qjFH6yFrGx+PUWAvfO2JugCQl+4GRd6BjlBzJZ5R7PxZQBciQVopz5zhh5+AEoaBki+Boetuq74R7CKFzE7NwqBqzDrh2Zi6NPq5sgmMk+n8oAddF1on2Tb2cesOPsvCQ1DfmB5bXWcyLG145KCv49opX1JWUqfbEz9USli8nGNaieZE5Zy2nrXRzMMA6rDzz2f7A/hgpXR7Y66QwtUibjZmziEszPphKk/YHxV1jo9zBtUUKlL7+Bf5s2gVLDZFIjjs6XI7aDC2aDzD1Nf7vy/f1QdUx+OS/y82C/ke4u/yxB9hDxdb8XdBaLtvp6fU7KS6qdQ8kMXY5+B1kuortRaykKGMYGqhDWggsJClXWtBFjJC+FzWmtOU/YArmBgfWgdNEGdkylux+0AEM5bUVdYf2vJObvnSi7y23HHGOGrFiSOWcaBynL62WiVuylgJh+s+ieaU=
+  on:
+    tags: true
