@@ -220,7 +220,8 @@ def calibrate_propeller(data_df, cal_fname, plot=False):
             cal = calibs[calibs["date"] == udates[i]]
             xi = cal["count_average"].values[:, numpy.newaxis]
             yi = cal["est_speed"].values
-            m, _, _, _ = numpy.linalg.lstsq(xi, yi)
+            # TODO review effect of `rcond`
+            m, _, _, _ = numpy.linalg.lstsq(xi, yi, rcond=None)
             fits[i, :] = m * x
             # Add fit to plot if switch on
             if plot:
@@ -237,7 +238,7 @@ def calibrate_propeller(data_df, cal_fname, plot=False):
 
         # Calculate fit coefficients for average samples
         x_avg = x[:, numpy.newaxis]
-        m_avg, _, _, _ = numpy.linalg.lstsq(x_avg, y_avg)
+        m_avg, _, _, _ = numpy.linalg.lstsq(x_avg, y_avg, rcond=None)
 
         return m_avg
 
